@@ -1,0 +1,16 @@
+%% -*- mode: erlang -*-
+{application, imapswitchboard,
+ [
+  {description, "Conduct monitoring and operations across email accounts"},
+  {vsn, "0.1.0"},
+  {modules, []},
+  {registered, [switchboard_sup]},
+  {applications, [
+                  lager,
+                  kernel,
+                  stdlib,
+                  eunit
+                 ]},
+  {mod, {switchboard_app, []}},
+  {env, []}
+ ]}.

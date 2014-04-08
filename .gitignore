@@ -1,0 +1,6 @@
+# erlang
+ebin/
+deps/
+log/
+.imapswitchboard.plt
+erl_crash.dump
