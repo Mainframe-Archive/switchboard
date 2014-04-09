@@ -1,8 +1,8 @@
 %% @doc An imap connection
 -module(imap).
 -behaviour(gen_server).
-
 -export([parse/1]).
+
 %% Interface exports
 -export([start/1, start/2,
          start_link/1, start_link/2,
@@ -44,8 +44,22 @@
 -type auth_xoauth2() :: {xoauth2, Account :: binary(), Token :: binary()}.
 -type auth() ::  auth_plain() | auth_xoauth2().
 
--type cmd() :: {login, auth()}.
+-type cmd() :: {login, auth()}
+               | list.
 -type internal_cmd() :: {cmd, pid() | none, cmd()}.
+
+%% Parse Types
+-type parse_result() :: {atom, binary()}         % Atom    [A-Za-z0-9+]+
+                        | integer()              % Number  [0-9]+
+                        | {string, binary()}     % String  "*" | {n}*
+                        | [parse_result()]       % List    (parse_result())
+                        | nil.                   % NIL     NIL
+
+-type parse_state() :: none
+                       | {string, binary()}
+                       | {atom, binary()}
+                       | {number, binary()}.
+
 
 %% Records
 -record(state, {socket :: socket(),
@@ -53,6 +67,8 @@
                 auth = none :: none | auth(),
                 tag = 0 :: integer(),
                 buffer = <<>> :: binary(),
+                parse_state = none :: parse_state(),
+                token_acc = [] :: [parse_result()],
                 cmds = queue:new() :: queue(),
                 active = none :: none | {Tag :: binary(), internal_cmd()}}).
 -export_type([connspec/0,
@@ -65,11 +81,12 @@
 %%==============================================================================
 
 -ifdef(DEBUG).
--export([start_test/0]).
-start_test() ->
+-export([start_dispatch/0]).
+start_dispatch() ->
     start({ssl, <<"imap.gmail.com">>, 993},
-          {xoauth2, <<"dispatchonme@gmail.com">>,
-           <<"1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc">>}).
+          {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}).
+          %%{xoauth2, <<"dispatchonme@gmail.com">>,
+          %% <<"1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc">>}).
 -endif.
 
 %% @equiv start(ConnSpec, none)
@@ -134,7 +151,8 @@ init({{SocketType, Host, Port, Options, Timeout} = ConnSpec, Auth}) ->
                     {ok, State};
                 _ ->
                     {ok, State#state{auth=Auth,
-                                     cmds=queue:in({cmd, none, Auth}, State#state.cmds)}}
+                                     cmds=queue:in({cmd, none, {login, Auth}},
+                                                   State#state.cmds)}}
             end;
         {error, ssl_not_started} ->
             start_app(ssl);
@@ -185,33 +203,38 @@ terminate(_Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
 %% @equiv step(State, Cmd) if there is a command the queue
 -spec step(#state{}) ->
     #state{}.
-step(#state{active=none, cmds=Cmds} = State) ->
+step(#state{active=none, cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     case queue:out(Cmds) of
         {empty, Cmds} ->
             State;
-        {{value, Cmd}, Cmds2} ->
-            send_cmd(State#state{cmds=Cmds2}, Cmd)
+        {{value, {cmd, _, InternalCmd} = Cmd}, Cmds2} ->
+            CTag = <<$C, (integer_to_binary(Tag))/binary>>,
+            ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(InternalCmd)]),
+            ok = ssl:send(Socket, [CTag, " " | cmd_to_data(InternalCmd)]),
+            State#state{cmds=Cmds2, tag=Tag+1, active={CTag, Cmd}}
     end.
 
 
-%% @doc tag and send the cmd
--spec send_cmd(#state{}, internal_cmd()) ->
-    #state{}.
-send_cmd(#state{} = State, {cmd, _, {login, {plain, Username, Password}}} = Cmd) ->
-    send_cmd(State, Cmd, intersperse(" ", ["LOGIN", Username, Password, "\r\n"])).
+%% @doc return a command as iodata() ready to be sent to the IMAP server
+-spec cmd_to_data(internal_cmd()) ->
+    iodata().
+cmd_to_data(InternalCmd) ->
+    %% XXX -- ineffecient end append
+    intersperse(" ", cmd_to_list(InternalCmd)) ++ ["\r\n"].
 
--spec send_cmd(#state{}, internal_cmd(), iodata()) ->
-    #state{}.
-send_cmd(#state{socket=Socket, tag=Tag} = State, Cmd, Data) ->
-    CTag = <<$C, (integer_to_binary(Tag))/binary>>,
-    ?LOG_DEBUG("SENDING: ~p", [Data]),
-    ok = ssl:send(Socket, [CTag, " " | Data]),
-    State#state{tag=Tag+1, active={CTag, Cmd}}.
+
+%% @doc return the list of command tokens
+-spec cmd_to_list(internal_cmd()) ->
+    iodata().
+cmd_to_list({login, {plain, Username, Password}}) ->
+    ["LOGIN", Username, Password];
+cmd_to_list(list) ->
+    ["LIST"].
 
 
 %% @doc intersperses the separator between list elements
--spec intersperse(Sep :: iodata(), Xs :: iodata()) ->
-    iodata().
+-spec intersperse(Sep, [Sep | A]) ->
+    [A] when Sep :: _, A :: _.
 intersperse(_, []) ->
   [];
 intersperse(_, [X]) ->
@@ -242,66 +265,58 @@ start_app(App) ->
 %% Response Parsing
 %%==============================================================================
 
--type parse_result() :: {atom, binary()}         % Atom    [A-Za-z0-9+]+
-                        | integer()              % Number  [0-9]+
-                        | {string, binary()}     % String  "*" | {n}*
-                        | [parse_result()]       % List    (parse_result())
-                        | nil.                   % NIL     NIL
+-spec parse(binary() | #state{}) ->
+    {binary(), parse_state(), [parse_result()], [[parse_result()]]} |
+        {[parse_result()] | none, #state{}}.
+parse(Data) when is_binary(Data) ->
+    parse(Data, none, []);
+parse(#state{buffer=Buffer, parse_state=ParseState, token_acc=TokenAcc} = State) ->
+    {Result, {Buffer2, ParseState2, TokenAcc2}} = parse(Buffer, ParseState, TokenAcc),
+    {Result, State#state{buffer=Buffer2, parse_state=ParseState2, token_acc=TokenAcc2}}.
 
--type parse_state() :: none
-                       | {string, []}
-                       | {atom, []}
-                       | {number, []}.
+-spec parse(binary(), parse_state(), [parse_result()]) ->
+    {[parse_result()] | none, {binary(), parse_state(), [parse_result()]}}.
+parse(<<>>, ParseState, ParseAcc) ->
+    {none, {<<>>, ParseState, ParseAcc}};
 
+parse(<<$\r, $\n, Rest/binary>>, _, TokenAcc) ->
+    {lists:reverse(TokenAcc), {Rest, none, []}};
 
--spec parse(binary()) ->
-    {binary(), parse_state(), [parse_result()]}.
-parse(Data) ->
-    parse(Data, none, [], []).
-
--spec parse(binary(), parse_state(), [parse_result()], [[parse_result()]]) ->
-    {binary(), parse_state(), [parse_result()]}.
-parse(<<>>, ParseState, ParseAcc, LineAcc) ->
-    {<<>>, ParseState, ParseAcc, LineAcc};
-
-parse(<<$\r, $\n, Rest/binary>>, _, ParseAcc, LineAcc) ->
-    parse(Rest, none, [], [lists:reverse(ParseAcc) | LineAcc]);
-
-parse(<<" ", Rest/binary>>, none, TokenAcc, LineAcc) ->
-    parse(Rest, none, TokenAcc, LineAcc);
+parse(<<" ", Rest/binary>>, none, TokenAcc) ->
+    parse(Rest, none, TokenAcc);
 
 %% NIL
-parse(<<"NIL", Rest/binary>>, none, TokenAcc, LineAcc) ->
-    parse(Rest, none, [nil | TokenAcc], LineAcc);
+parse(<<"NIL", Rest/binary>>, none, TokenAcc) ->
+    parse(Rest, none, [nil | TokenAcc]);
 
 %% String
-parse(<<$", Rest/binary>>, none, TokenAcc, LineAcc) ->
-    parse(Rest, {string, <<>>}, TokenAcc, LineAcc);
-parse(<<$", Rest/binary>>, {string, StringAcc}, TokenAcc, LineAcc) ->
-    parse(Rest, none, [{string, StringAcc} | TokenAcc], LineAcc);
-parse(<<$\\, $", Rest/binary>>, {string, StringAcc}, TokenAcc, LineAcc) ->
-    parse(Rest, {string, <<StringAcc/binary, $">>}, TokenAcc, LineAcc);
-parse(<<C, Rest/binary>>, {string, StringAcc}, TokenAcc, LineAcc) when C /= $"->
-    parse(Rest, {string, <<StringAcc/binary, C>>}, TokenAcc, LineAcc);
+parse(<<$", Rest/binary>>, none, TokenAcc) ->
+    parse(Rest, {string, <<>>}, TokenAcc);
+parse(<<$", Rest/binary>>, {string, StringAcc}, TokenAcc) ->
+    parse(Rest, none, [{string, StringAcc} | TokenAcc]);
+parse(<<$\\, $", Rest/binary>>, {string, StringAcc}, TokenAcc) ->
+    parse(Rest, {string, <<StringAcc/binary, $">>}, TokenAcc);
+parse(<<C, Rest/binary>>, {string, StringAcc}, TokenAcc) when C /= $"->
+    parse(Rest, {string, <<StringAcc/binary, C>>}, TokenAcc);
 
 %% Number
-parse(<<D, Rest/binary>>, none, TokenAcc, LineAcc) when D >= 30, D < 40 ->
-    parse(Rest, {number, <<>>}, TokenAcc, LineAcc);
+parse(<<D, Rest/binary>>, none, TokenAcc) when D >= 30, D < 40 ->
+    parse(Rest, {number, <<>>}, TokenAcc);
 
 %% Atom
-parse(<<" ", Rest/binary>>, {atom, AtomAcc}, TokenAcc, LineAcc) ->
-    parse(Rest, none, [{atom, AtomAcc} | TokenAcc], LineAcc);
-parse(<<C, Rest/binary>>, none, TokenAcc, LineAcc) when C >= 42, C < 123 ->
-    parse(Rest, {atom, <<C>>}, TokenAcc, LineAcc);
-parse(<<C, Rest/binary>>, {atom, AtomAcc}, TokenAcc, LineAcc) when C >= 42, C < 123 ->
-    parse(Rest, {atom, <<AtomAcc/binary, C>>}, TokenAcc, LineAcc);
+parse(<<" ", Rest/binary>>, {atom, AtomAcc}, TokenAcc) ->
+    parse(Rest, none, [{atom, AtomAcc} | TokenAcc]);
+parse(<<C, Rest/binary>>, none, TokenAcc) when C >= 42, C < 123 ->
+    parse(Rest, {atom, <<C>>}, TokenAcc);
+parse(<<C, Rest/binary>>, {atom, AtomAcc}, TokenAcc) when C >= 42, C < 123 ->
+    parse(Rest, {atom, <<AtomAcc/binary, C>>}, TokenAcc);
 
 %% List
-parse(<<$(, Rest/binary>>, none, TokenAcc, LineAcc) ->
-    {InnerRest, none, List, []} = parse(Rest, none, [], []),
-    parse(InnerRest, none, [List | TokenAcc], LineAcc);
-parse(<<$), Rest/binary>>, _, TokenAcc, LineAcc) ->
-    {Rest, none, lists:reverse(TokenAcc), LineAcc}.
+parse(<<$(, Rest/binary>>, none, TokenAcc) ->
+    {List, {InnerRest, none, []}} = parse(Rest, none, []),
+    parse(InnerRest, none, [List | TokenAcc]);
+parse(<<$), Rest/binary>>, _, TokenAcc) ->
+    {lists:reverse(TokenAcc), {Rest, none, []}}.
 
 
 %%==============================================================================
@@ -321,23 +336,24 @@ parse_test_() ->
 
 
 parse_atoms() ->
-    [?_assertEqual({<<>>, none, [{atom, <<"atom">>}], []},
+    [?_assertEqual({none, {<<>>, none, [{atom, <<"atom">>}]}},
                    parse(<<"atom ">>))].
 
 parse_nils() ->
-    [?_assertEqual({<<>>, none, [nil], []}, parse(<<"NIL">>)),
-     ?_assertEqual({<<>>, none, [nil], []}, parse(<<"NIL ">>))].
+    [?_assertEqual({none, {<<>>, none, [nil]}}, parse(<<"NIL">>)),
+     ?_assertEqual({none, {<<>>, none, [nil]}}, parse(<<"NIL ">>))].
 
 parse_strings() ->
-    [?_assertEqual({<<>>, none, [{string, <<"string">>}], []}, parse(<<"\"string\"">>))].
+    [?_assertEqual({none, {<<>>, none, [{string, <<"string">>}]}},
+                   parse(<<"\"string\"">>))].
 
 parse_lists() ->
-    [?_assertEqual({<<>>, none, [[{string, <<"a">>}, {string, <<"b">>}]], []},
+    [?_assertEqual({none, {<<>>, none, [[{string, <<"a">>}, {string, <<"b">>}]]}},
                    parse(<<"(\"a\" \"b\")">>)),
-     ?_assertEqual({<<>>, none, [],
-                    [[[{string, <<"a">>}, {string, <<"b">>},
-                       [{string, <<"c">>}, {string, <<"d">>}]],
-                      {string, <<"e">>}, {string, <<"f">>}]]},
+     ?_assertEqual({[[{string, <<"a">>}, {string, <<"b">>},
+                      [{string, <<"c">>}, {string, <<"d">>}]],
+                     {string, <<"e">>}, {string, <<"f">>}],
+                    {<<>>, none, []}},
                    parse(<<"(\"a\" \"b\" (\"c\" \"d\")) \"e\" \"f\"\r\n">>))].
 
 -endif.
