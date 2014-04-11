@@ -1,0 +1,13 @@
+* TODO convert imap.erl from gen_server to gen_fsm
+  see https://github.com/akheron/cpython/blob/5bd36f147642ed6d8237785ad3c7d69d702e5832/Lib/imaplib.py#L57
+  for command to state mapping
+
+* TODO allow multiple commands to be issued
+  Maintain a gb_tree of Tag -> {Pid, Cmd}
+
+* TODO add documentation for adding an IMAP command
+  I want to keep this to one file, so I won't be able to make it
+  extensible via behaviors. Instead, let's make it as easy as
+  possible to extend with additional commands.
+
+* TODO get add/drop account supervision tree working like a charm

@@ -1,11 +1,14 @@
 %% @doc An imap connection
+%% http://tools.ietf.org/html/rfc3501
+%% In the API, binaries are used for string-like data.
+
 -module(imap).
 -behaviour(gen_server).
 -export([parse/1]).
 
 %% Interface exports
--export([start/1, start/2,
-         start_link/1, start_link/2,
+-export([start/1,
+         start_link/1,
          stop/1,
          cmd/2]).
 
@@ -45,8 +48,14 @@
 -type auth() ::  auth_plain() | auth_xoauth2().
 
 -type cmd() :: {login, auth()}
-               | list.
+               | list
+               | {select, mailbox()}
+               | idle.
+
 -type internal_cmd() :: {cmd, pid() | none, cmd()}.
+
+%% Mailboxes
+-type mailbox() :: binary().
 
 %% Parse Types
 -type parse_result() :: {atom, binary()}         % Atom    [A-Za-z0-9+]+
@@ -61,20 +70,24 @@
                        | {number, binary()}.
 
 
+-export_type([connspec/0,
+              auth_plain/0,
+              auth_xoauth2/0,
+              auth/0,
+              mailbox/0]).
+
+
 %% Records
 -record(state, {socket :: socket(),
                 connspec :: connspec(),
                 auth = none :: none | auth(),
                 tag = 0 :: integer(),
+                %% XXX - buffer as binary means I have to cat binaries -- it would likely be more efficient to use a queue of binaries
                 buffer = <<>> :: binary(),
                 parse_state = none :: parse_state(),
                 token_acc = [] :: [parse_result()],
                 cmds = queue:new() :: queue(),
                 active = none :: none | {Tag :: binary(), internal_cmd()}}).
--export_type([connspec/0,
-              auth_plain/0,
-              auth_xoauth2/0,
-              auth/0]).
 
 %%==============================================================================
 %% Interface exports
@@ -83,37 +96,23 @@
 -ifdef(DEBUG).
 -export([start_dispatch/0]).
 start_dispatch() ->
-    start({ssl, <<"imap.gmail.com">>, 993},
-          {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}).
-          %%{xoauth2, <<"dispatchonme@gmail.com">>,
-          %% <<"1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc">>}).
+    {ok, Child} = start({ssl, <<"imap.gmail.com">>, 993}),
+    ok = cmd(Child, {login, {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}}),
+    {ok, Child}.
 -endif.
 
-%% @equiv start(ConnSpec, none)
+%% @doc start a standalone IMAP connection
 -spec start(connspec()) ->
     {ok, pid()} | _.
 start(ConnSpec) ->
-    start(ConnSpec, none).
+    gen_server:start(?MODULE, ConnSpec, []).
 
 
-%% @doc start a standalone IMAP connection
--spec start(connspec(), auth() | none) ->
-    {ok, pid()} | _.
-start(ConnSpec, Auth) ->
-    gen_server:start(?MODULE, {ConnSpec, Auth}, []).
-
-
-%% @equiv start(ConnSpec, none)
+%% @doc start an IMAP connection as part of the supervision tree
 -spec start_link(connspec()) ->
     {ok, pid()} | _.
 start_link(ConnSpec) ->
-    start_link(ConnSpec, none).
-
-%% @doc start an IMAP connection as part of the supervision tree
--spec start_link(connspec(), auth() | none) ->
-    {ok, pid()} | _.
-start_link(ConnSpec, Auth) ->
-    gen_server:start_link(?MODULE, {ConnSpec, Auth}, []).
+    gen_server:start_link(?MODULE, ConnSpec, []).
 
 
 %% @doc stop the server
@@ -133,29 +132,21 @@ cmd(IMAP, Cmd) ->
 %%==============================================================================
 
 %% @doc init callback
--spec init({connspec()} | {connspec(), auth() | none}) ->
+-spec init(connspec()) ->
     {ok, #state{}} | {stop, _}.
-init({ConnSpec}) ->
-    init({ConnSpec, none});
-init({{SocketType, Host, Port}, Auth}) ->
-    init({{SocketType, Host, Port, []}, Auth});
-init({{SocketType, Host, Port, Options}, Auth}) ->
-    init({{SocketType, Host, Port, Options, 5000}, Auth});
-init({{SocketType, Host, Port, Options, Timeout} = ConnSpec, Auth}) ->
+init({SocketType, Host, Port}) ->
+    init({SocketType, Host, Port, []});
+init({SocketType, Host, Port, Options}) ->
+    init({SocketType, Host, Port, Options, 5000});
+init({SocketType, Host, Port, Options, Timeout} = ConnSpec) ->
     OptionDefaults = [binary],
     case SocketType:connect(binary_to_list(Host), Port, Options ++ OptionDefaults, Timeout) of
         {ok, Socket} ->
-            State = #state{socket=Socket, connspec=ConnSpec},
-            case Auth of
-                none ->
-                    {ok, State};
-                _ ->
-                    {ok, State#state{auth=Auth,
-                                     cmds=queue:in({cmd, none, {login, Auth}},
-                                                   State#state.cmds)}}
-            end;
+            {ok, #state{socket=Socket, connspec=ConnSpec}};
         {error, ssl_not_started} ->
-            start_app(ssl);
+            %% If ssl app isn't started, attempt to restart and then retry init
+            start_app(ssl),
+            init(ConnSpec);
         {error, Reason} ->
             {stop, Reason}
     end.
@@ -167,8 +158,6 @@ handle_call(_Request, _From, State) ->
 %% @doc handle asynchronous casts
 handle_cast({cmd, _, _} = Cmd, #state{cmds=Cmds} = State) ->
     {noreply, step(State#state{cmds=queue:in(Cmd, Cmds)})};
-%handle_cast({login, {plain, Username, Password}}, State) ->
-
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast(_Request, State) ->
@@ -176,12 +165,13 @@ handle_cast(_Request, State) ->
 
 
 %% @doc handle messages
-handle_info({ssl, Socket, Data}, #state{socket=Socket} = State) ->
+handle_info({ssl, Socket, Data}, #state{socket=Socket, buffer=Buffer} = State) ->
     ?LOG_WARNING(handle_info, "unexpected data: ~p", [Data]),
     ?LOG_DEBUG("data: ~p", [parse(Data)]),
     %% TODO
-    {noreply, step(State)};
+    {noreply, step(State#state{})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
+    ?LOG_DEBUG("Socket Closed: ~p", [self()]),
     {stop, normal, State};
 handle_info(Info, State) ->
     ?LOG_WARNING(handle_info, "unexpected: ~p", [Info]),
@@ -193,14 +183,16 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 terminate(_Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
-    SocketType:close(Socket).
+    SocketType:close(Socket);
+terminate(Reason, _State) ->
+    ?LOG_DEBUG("~p", [Reason]).
 
 
 %%==============================================================================
 %% Internal functions
 %%==============================================================================
 
-%% @equiv step(State, Cmd) if there is a command the queue
+%% @doc step the state by flushing the buffer, then attempting to run the next cmd
 -spec step(#state{}) ->
     #state{}.
 step(#state{active=none, cmds=Cmds, socket=Socket, tag=Tag} = State) ->
@@ -212,7 +204,12 @@ step(#state{active=none, cmds=Cmds, socket=Socket, tag=Tag} = State) ->
             ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(InternalCmd)]),
             ok = ssl:send(Socket, [CTag, " " | cmd_to_data(InternalCmd)]),
             State#state{cmds=Cmds2, tag=Tag+1, active={CTag, Cmd}}
-    end.
+    end;
+step(State) ->
+    State.
+
+
+flush()
 
 
 %% @doc return a command as iodata() ready to be sent to the IMAP server
@@ -228,8 +225,12 @@ cmd_to_data(InternalCmd) ->
     iodata().
 cmd_to_list({login, {plain, Username, Password}}) ->
     ["LOGIN", Username, Password];
+cmd_to_list({select, Mailbox}) ->
+    ["SELECT", Mailbox];
 cmd_to_list(list) ->
-    ["LIST"].
+    ["LIST"];
+cmd_to_list(idle) ->
+    ["IDLE"].
 
 
 %% @doc intersperses the separator between list elements
