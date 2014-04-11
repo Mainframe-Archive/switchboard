@@ -21,8 +21,8 @@ start_link(ConnSpec, Auth, Mailboxes) ->
         {ok, Pid} ->
             %% Auth the active connection
             {ok, Active} = which(Pid, active),
-            %% TODO - better cmds
-            ok = imap:cmd(Active, {login, Auth}),
+            %% TODO - Decide whether to call or cast here
+            {ok, _} = imap:call(Active, {login, Auth}),
             {ok, Pid};
         {error, Reason} ->
             {error, Reason}

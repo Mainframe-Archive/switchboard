@@ -35,10 +35,10 @@ start_child(Sup, Auth, Mailbox) ->
     case supervisor:start_child(Sup, []) of
         {ok, Child} ->
             %% Auth and listen on the given mailbox
-            %% DO THIS WITH ACTUAL RETURNS
-            ok = imap:cmd(Child, {login, Auth}),
-            ok = imap:cmd(Child, {select, Mailbox}),
-            ok = imap:cmd(Child, idle),
+            %% TODO - DO THIS WITH ACTUAL RETURNS
+            ok = imap:cast(Child, {login, Auth}),
+            ok = imap:cast(Child, {select, Mailbox}),
+            ok = imap:cast(Child, idle),
             {ok, Child};
         {error, Reason} ->
             {error, Reason}

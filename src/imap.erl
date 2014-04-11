@@ -4,13 +4,14 @@
 
 -module(imap).
 -behaviour(gen_server).
--export([parse/1]).
 
 %% Interface exports
 -export([start/1,
          start_link/1,
          stop/1,
-         cmd/2]).
+         cast/2,
+         call/2, call/3,
+         recv/0, recv/1]).
 
 %% Callback exports
 -export([init/1,
@@ -22,12 +23,18 @@
 
 %% Macros
 % uncomment this if you want to enable debug mode
+-define(CALL_TIMEOUT, 5000).
 -define(DEBUG, true).
 
 -ifdef(DEBUG).
-    -define(LOG_DEBUG(Format, Data), ?LOG_INFO("*** DEBUG: " ++ Format ++ " ***", Data)).
-    -define(LOG_ERROR(Fun, Format, Data), error_logger:error_msg("~p:~p(): " ++ Format ++ "~n", [?MODULE, Fun] ++ Data)).
-    -define(LOG_WARNING(Fun, Format, Data), error_logger:warning_msg("~p:~p(): " ++ Format ++ "~n", [?MODULE, Fun] ++ Data)).
+    -define(LOG_DEBUG(Format, Data),
+            ?LOG_INFO("*** DEBUG: " ++ Format ++ " ***", Data)).
+    -define(LOG_ERROR(Fun, Format, Data),
+            error_logger:error_msg("~p:~p(): " ++ Format ++ "~n",
+                                   [?MODULE, Fun] ++ Data)).
+    -define(LOG_WARNING(Fun, Format, Data),
+            error_logger:warning_msg("~p:~p(): " ++ Format ++ "~n",
+                                     [?MODULE, Fun] ++ Data)).
     -define(LOG_INFO(Format, Data), error_logger:info_msg(Format ++ "~n", Data)).
 -else.
     -define(LOG_DEBUG(Format, Data), true).
@@ -48,9 +55,9 @@
 -type auth() ::  auth_plain() | auth_xoauth2().
 
 -type cmd() :: {login, auth()}
-               | list
-               | {select, mailbox()}
-               | idle.
+             | list
+             | {select, mailbox()}
+             | idle.
 
 -type internal_cmd() :: {cmd, pid() | none, cmd()}.
 
@@ -58,16 +65,16 @@
 -type mailbox() :: binary().
 
 %% Parse Types
--type parse_result() :: {atom, binary()}         % Atom    [A-Za-z0-9+]+
-                        | integer()              % Number  [0-9]+
-                        | {string, binary()}     % String  "*" | {n}*
-                        | [parse_result()]       % List    (parse_result())
-                        | nil.                   % NIL     NIL
+-type parse_term() :: binary()               % Atom    [A-Za-z0-9+]+
+                    | integer()              % Number  [0-9]+
+                    | {string, binary()}     % String  "*" | {n}*
+                    | [parse_term()]         % List    (parse_term())
+                    | nil.                   % NIL     NIL
 
 -type parse_state() :: none
-                       | {string, binary()}
-                       | {atom, binary()}
-                       | {number, binary()}.
+                     | {string, binary()}
+                     | {atom, binary()}
+                     | {number, binary()}.
 
 
 -export_type([connspec/0,
@@ -82,22 +89,21 @@
                 connspec :: connspec(),
                 auth = none :: none | auth(),
                 tag = 0 :: integer(),
-                %% XXX - buffer as binary means I have to cat binaries -- it would likely be more efficient to use a queue of binaries
                 buffer = <<>> :: binary(),
                 parse_state = none :: parse_state(),
-                token_acc = [] :: [parse_result()],
-                cmds = queue:new() :: queue(),
-                active = none :: none | {Tag :: binary(), internal_cmd()}}).
+                token_acc = [] :: [parse_term()],
+                cmds = gb_trees:empty() :: gb_trees:tree()}).
 
 %%==============================================================================
 %% Interface exports
 %%==============================================================================
 
 -ifdef(DEBUG).
--export([start_dispatch/0]).
+-export([start_dispatch/0, parse/1]).
 start_dispatch() ->
     {ok, Child} = start({ssl, <<"imap.gmail.com">>, 993}),
-    ok = cmd(Child, {login, {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}}),
+    {ok, _} = call(Child, {login, {plain, <<"dispatchonme@gmail.com">>,
+                                   <<"jives48_cars">>}}),
     {ok, Child}.
 -endif.
 
@@ -122,10 +128,66 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
--spec cmd(pid(), cmd()) ->
+-spec cast(pid(), cmd()) ->
     ok.
-cmd(IMAP, Cmd) ->
-    gen_server:cast(IMAP, {cmd, self(), Cmd}).
+cast(Server, Cmd) ->
+    gen_server:cast(Server, {cmd, self(), Cmd}).
+
+
+%% @equiv call(Server, Cmd, ?CALL_TIMEOUT)
+-spec call(pid(), cmd()) ->
+    {ok, [[parse_term()]]} | {error, _}.
+call(Server, Cmd) ->
+    call(Server, Cmd, ?CALL_TIMEOUT).
+
+%% @doc call the command, waiting until timeout for all responses
+-spec call(pid(), cmd(), integer()) ->
+    {ok, [[parse_term()]]} | {error, _}.
+call(Server, Cmd, Timeout) ->
+    gen_server:cast(Server, {cmd, self(), Cmd}),
+    Ref = monitor(process, Server),
+    Responses = recv(Timeout, Ref),
+    true = demonitor(Ref),
+    Responses.
+
+
+%% @equiv recv(?CALL_TIMEOUT)
+-spec recv() ->
+    {ok, [[parse_term()]]} | {error, _}.
+recv() ->
+    recv(?CALL_TIMEOUT).
+
+%% @equiv recv(Timeout, none)
+-spec recv(integer()) ->
+    {ok, [[parse_term()]]} | {error, _}.
+recv(Timeout) ->
+    recv(Timeout, none).
+
+%% @doc receive response until completion message, optional monitor used be call
+-spec recv(integer(), reference() | none) ->
+    {ok, [[parse_term()]]} | {error, _}.
+recv(Timeout, MonitorRef) ->
+    recv(Timeout, MonitorRef, []).
+
+%% @private helper for recieving responses
+-spec recv(integer(), reference() | none, [[parse_term()]]) ->
+    {ok, [[parse_term()]]} | {error, _}.
+recv(Timeout, MonitorRef, Responses) ->
+    receive
+        {'*', Response} ->
+            recv(Timeout, [{'*', Response} | Responses]);
+        {'OK', Response} ->
+            {ok, lists:reverse([{'OK', Response} | Responses])};
+        {'NO', Response} ->
+            {error, lists:reverse([{'NO', Response} | Responses])};
+        {'BAD', Response} ->
+            {error, lists:reverse([{'BAD', Response} | Responses])};
+        {'DOWN', MonitorRef, _, Reason} ->
+            {error, {down, Reason, lists:reverse(Responses)}}
+        after
+            Timeout ->
+              {error, timeout}
+        end.
 
 %%==============================================================================
 %% Callback exports
@@ -156,8 +218,11 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% @doc handle asynchronous casts
-handle_cast({cmd, _, _} = Cmd, #state{cmds=Cmds} = State) ->
-    {noreply, step(State#state{cmds=queue:in(Cmd, Cmds)})};
+handle_cast({cmd, _, Cmd} = IntCmd, #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
+    CTag = <<$C, (integer_to_binary(Tag))/binary>>,
+    ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(Cmd)]),
+    ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
+    {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast(_Request, State) ->
@@ -166,10 +231,9 @@ handle_cast(_Request, State) ->
 
 %% @doc handle messages
 handle_info({ssl, Socket, Data}, #state{socket=Socket, buffer=Buffer} = State) ->
-    ?LOG_WARNING(handle_info, "unexpected data: ~p", [Data]),
     ?LOG_DEBUG("data: ~p", [parse(Data)]),
-    %% TODO
-    {noreply, step(State#state{})};
+    %% XXX ineffecient binary cat, buffer can be wrapped in a queue
+    {noreply, churn_buffer(State#state{buffer=(<<Buffer/binary, Data/binary>>)})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
     ?LOG_DEBUG("Socket Closed: ~p", [self()]),
     {stop, normal, State};
@@ -182,7 +246,8 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-terminate(_Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
+terminate(Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
+    ?LOG_WARNING(terminate, "TERMINATING ~p", [Reason]),
     SocketType:close(Socket);
 terminate(Reason, _State) ->
     ?LOG_DEBUG("~p", [Reason]).
@@ -192,25 +257,51 @@ terminate(Reason, _State) ->
 %% Internal functions
 %%==============================================================================
 
-%% @doc step the state by flushing the buffer, then attempting to run the next cmd
--spec step(#state{}) ->
+%% @doc churn the buffer by parsing responses and sending them to the proper processes
+-spec churn_buffer(#state{}) ->
     #state{}.
-step(#state{active=none, cmds=Cmds, socket=Socket, tag=Tag} = State) ->
-    case queue:out(Cmds) of
-        {empty, Cmds} ->
-            State;
-        {{value, {cmd, _, InternalCmd} = Cmd}, Cmds2} ->
-            CTag = <<$C, (integer_to_binary(Tag))/binary>>,
-            ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(InternalCmd)]),
-            ok = ssl:send(Socket, [CTag, " " | cmd_to_data(InternalCmd)]),
-            State#state{cmds=Cmds2, tag=Tag+1, active={CTag, Cmd}}
-    end;
-step(State) ->
-    State.
+churn_buffer(#state{buffer=Buffer, parse_state=ParseState, token_acc=TokenAcc} = State) ->
+    {Result, {Buffer2, ParseState2, TokenAcc2}} = parse(Buffer, ParseState, TokenAcc),
+    churn_buffer(State#state{buffer=Buffer2,
+                             parse_state=ParseState2,
+                             token_acc=TokenAcc2},
+                 Result).
 
 
-flush()
+%% @private internal churn_buffer helper
+-spec churn_buffer(#state{}, [parse_term()]) ->
+    #state{}.
+churn_buffer(State, none) ->
+    State;
+churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
+    ?LOG_DEBUG("UNTAGGED: ~p", [Response]),
+    [Pid ! {'*', Response} ||
+        {cmd, Pid, Cmd} <- gb_trees:values(Cmds), cmds_response(Cmd, Response)],
+    churn_buffer(State);
+churn_buffer(State, [<<"+">> | Response]) ->
+    ?LOG_DEBUG("Continuation: ~p", [Response]),
+    churn_buffer(State);
+churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
+    ?LOG_DEBUG("Tag: ~p, Rest: ~p", [Tag, Response]),
+    churn_buffer(case gb_trees:lookup(Tag, Cmds) of
+                     {value, {cmd, Pid, _}} ->
+                         Pid ! case Response of
+                                   [<<"OK">> | Rest]  -> {'OK', Rest};
+                                   [<<"NO">> | Rest]  -> {'NO', Rest};
+                                   [<<"BAD">> | Rest] -> {'BAD', Rest}
+                               end,
+                         State#state{cmds=gb_trees:delete(Tag, Cmds)};
+                     none ->
+                         ?LOG_WARNING(churn_buffer, "Unknown Cmd Tag: ~p", [Tag]),
+                         State
+                 end).
 
+
+%% @doc returns true if the response is associated with the given cmd
+-spec cmds_response(_, _) ->
+    boolean().
+cmds_response(_Cmd, _Response) ->
+    false.
 
 %% @doc return a command as iodata() ready to be sent to the IMAP server
 -spec cmd_to_data(internal_cmd()) ->
@@ -266,17 +357,17 @@ start_app(App) ->
 %% Response Parsing
 %%==============================================================================
 
--spec parse(binary() | #state{}) ->
-    {binary(), parse_state(), [parse_result()], [[parse_result()]]} |
-        {[parse_result()] | none, #state{}}.
-parse(Data) when is_binary(Data) ->
-    parse(Data, none, []);
-parse(#state{buffer=Buffer, parse_state=ParseState, token_acc=TokenAcc} = State) ->
-    {Result, {Buffer2, ParseState2, TokenAcc2}} = parse(Buffer, ParseState, TokenAcc),
-    {Result, State#state{buffer=Buffer2, parse_state=ParseState2, token_acc=TokenAcc2}}.
+-type parse_return() :: {[parse_term()] | none,
+                         {binary(), parse_state(), [parse_term()]}}.
 
--spec parse(binary(), parse_state(), [parse_result()]) ->
-    {[parse_result()] | none, {binary(), parse_state(), [parse_result()]}}.
+-spec parse(binary()) ->
+    parse_return().
+parse(Data) ->
+    parse(Data, none, []).
+%% XXX Relies on space after terms -- will drop on \r\n. TOKENIZE + LEX
+
+-spec parse(binary(), parse_state(), [parse_term()]) ->
+    parse_return().
 parse(<<>>, ParseState, ParseAcc) ->
     {none, {<<>>, ParseState, ParseAcc}};
 
@@ -290,6 +381,13 @@ parse(<<" ", Rest/binary>>, none, TokenAcc) ->
 parse(<<"NIL", Rest/binary>>, none, TokenAcc) ->
     parse(Rest, none, [nil | TokenAcc]);
 
+%% List
+parse(<<$(, Rest/binary>>, none, TokenAcc) ->
+    {List, {InnerRest, none, []}} = parse(Rest, none, []),
+    parse(InnerRest, none, [List | TokenAcc]);
+parse(<<$), Rest/binary>>, _, TokenAcc) ->
+    {lists:reverse(TokenAcc), {Rest, none, []}};
+
 %% String
 parse(<<$", Rest/binary>>, none, TokenAcc) ->
     parse(Rest, {string, <<>>}, TokenAcc);
@@ -301,23 +399,25 @@ parse(<<C, Rest/binary>>, {string, StringAcc}, TokenAcc) when C /= $"->
     parse(Rest, {string, <<StringAcc/binary, C>>}, TokenAcc);
 
 %% Number
-parse(<<D, Rest/binary>>, none, TokenAcc) when D >= 30, D < 40 ->
-    parse(Rest, {number, <<>>}, TokenAcc);
+parse(<<" ", Rest/binary>>, {number, NumberAcc}, TokenAcc) ->
+    parse(Rest, none, [binary_to_integer(NumberAcc) | TokenAcc]);
+    %parse(Rest, none, [NumberAcc | TokenAcc]);
+parse(<<D, Rest/binary>>, {number, NumberAcc}, TokenAcc) when D >= 48, D < 57 ->
+    parse(Rest, {number, <<NumberAcc/binary, D>>}, TokenAcc);
+parse(<<D, Rest/binary>>, none, TokenAcc) when D >= 48, D < 57 ->
+    parse(Rest, {number, <<D>>}, TokenAcc);
+parse(<<C, Rest/binary>>, {number, NumberAcc}, TokenAcc) when C >= 35, C < 123 ->
+    parse(Rest, {atom, <<NumberAcc/binary, C>>}, TokenAcc);
 
 %% Atom
+%% XXX -- atoms as atoms +: simpler syntax, quicker matching, -: could blow the atom table
 parse(<<" ", Rest/binary>>, {atom, AtomAcc}, TokenAcc) ->
-    parse(Rest, none, [{atom, AtomAcc} | TokenAcc]);
-parse(<<C, Rest/binary>>, none, TokenAcc) when C >= 42, C < 123 ->
+    %% otherwise, {atom, <<"atomname">>}
+    parse(Rest, none, [AtomAcc | TokenAcc]);
+parse(<<C, Rest/binary>>, none, TokenAcc) when C >= 35, C < 123 ->
     parse(Rest, {atom, <<C>>}, TokenAcc);
-parse(<<C, Rest/binary>>, {atom, AtomAcc}, TokenAcc) when C >= 42, C < 123 ->
-    parse(Rest, {atom, <<AtomAcc/binary, C>>}, TokenAcc);
-
-%% List
-parse(<<$(, Rest/binary>>, none, TokenAcc) ->
-    {List, {InnerRest, none, []}} = parse(Rest, none, []),
-    parse(InnerRest, none, [List | TokenAcc]);
-parse(<<$), Rest/binary>>, _, TokenAcc) ->
-    {lists:reverse(TokenAcc), {Rest, none, []}}.
+parse(<<C, Rest/binary>>, {atom, AtomAcc}, TokenAcc) when C >= 35, C < 123 ->
+    parse(Rest, {atom, <<AtomAcc/binary, C>>}, TokenAcc).
 
 
 %%==============================================================================
@@ -331,18 +431,24 @@ parse(<<$), Rest/binary>>, _, TokenAcc) ->
 
 parse_test_() ->
     [parse_atoms(),
+     parse_numbers(),
      parse_nils(),
      parse_strings(),
      parse_lists()].
 
 
 parse_atoms() ->
-    [?_assertEqual({none, {<<>>, none, [{atom, <<"atom">>}]}},
+    [?_assertEqual({none, {<<>>, none, [<<"atom">>]}},
                    parse(<<"atom ">>))].
 
 parse_nils() ->
     [?_assertEqual({none, {<<>>, none, [nil]}}, parse(<<"NIL">>)),
      ?_assertEqual({none, {<<>>, none, [nil]}}, parse(<<"NIL ">>))].
+
+
+parse_numbers() ->
+    [?_assertEqual({[0], {<<>>, none, []}}, parse(<<"0 \r\n">>)),
+     ?_assertEqual({[21], {<<>>, none, []}}, parse(<<"21 \r\n">>))].
 
 parse_strings() ->
     [?_assertEqual({none, {<<>>, none, [{string, <<"string">>}]}},
@@ -351,10 +457,10 @@ parse_strings() ->
 parse_lists() ->
     [?_assertEqual({none, {<<>>, none, [[{string, <<"a">>}, {string, <<"b">>}]]}},
                    parse(<<"(\"a\" \"b\")">>)),
-     ?_assertEqual({[[{string, <<"a">>}, {string, <<"b">>},
+     ?_assertEqual({[[{string, <<"a">>}, 1,
                       [{string, <<"c">>}, {string, <<"d">>}]],
                      {string, <<"e">>}, {string, <<"f">>}],
                     {<<>>, none, []}},
-                   parse(<<"(\"a\" \"b\" (\"c\" \"d\")) \"e\" \"f\"\r\n">>))].
+                   parse(<<"(\"a\" 1 (\"c\" \"d\")) \"e\" \"f\"\r\n">>))].
 
 -endif.
