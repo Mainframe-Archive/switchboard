@@ -37,8 +37,8 @@ start_child(ConnSpec, Auth, Mailboxes) ->
 init(no_args) ->
     RestartStrategy = simple_one_for_one,
     MaxR = MaxT = 5,
-    OpersSpec = {switchboard_account_sup,
-                 {switchboard_account_sup, start_link, []},
+    OpersSpec = {switchboard_accounts,
+                 {switchboard_accounts, start_link, []},
                  transient,
                  infinity,
                  supervisor,

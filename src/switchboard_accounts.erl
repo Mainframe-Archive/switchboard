@@ -48,7 +48,7 @@ init({ConnSpec, Auth, Mailboxes}) ->
     RestartStrategy = one_for_all,
     MaxR = MaxT = 5,
     ActiveChildSpec = {active,
-                       {imap, start_link, [{ConnSpec}]},
+                       {imap, start_link, [ConnSpec]},
                        transient, % permanent | temporary
                        5000, % brutal_kill | int() % ms
                        worker, % supervisor

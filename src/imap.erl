@@ -151,13 +151,13 @@ cast(Server, Cmd) ->
 
 %% @equiv call(Server, Cmd, ?CALL_TIMEOUT)
 -spec call(pid(), cmd()) ->
-    {ok, _} | {error, _}.
+    {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd) ->
     call(Server, Cmd, ?CALL_TIMEOUT).
 
 %% @doc call the command, waiting until timeout for all responses
 -spec call(pid(), cmd(), integer()) ->
-    {ok, _} | {error, _}.
+    {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd, Timeout) ->
     gen_server:cast(Server, {cmd, self(), Cmd}),
     Ref = monitor(process, Server),
@@ -168,27 +168,29 @@ call(Server, Cmd, Timeout) ->
 
 %% @equiv recv(?CALL_TIMEOUT)
 -spec recv() ->
-    {ok, _} | {error, _}.
+    {ok, _} | {'+', _} | {error, _}.
 recv() ->
     recv(?CALL_TIMEOUT).
 
 %% @equiv recv(Timeout, none)
 -spec recv(integer()) ->
-    {ok, _} | {error, _}.
+    {ok, _} | {'+', _} | {error, _}.
 recv(Timeout) ->
     recv(Timeout, none).
 
 %% @doc receive response until completion message, optional monitor used be call
 -spec recv(integer(), reference() | none) ->
-    {ok, _} | {error, _}.
+    {ok, _} | {'+', _} | {error, _}.
 recv(Timeout, MonitorRef) ->
     recv(Timeout, MonitorRef, []).
 
 %% @private helper for recieving responses
 -spec recv(integer(), reference() | none, _) ->
-    {ok, _} | {error, _}.
+    {ok, _} | {'+', _} | {error, _}.
 recv(Timeout, MonitorRef, Responses) ->
     receive
+        {'+', Response} ->
+            {'+', lists:reverse([{'+', Response} | Responses])};
         {'*', Response} ->
             recv(Timeout, MonitorRef, [{'*', Response} | Responses]);
         {'OK', Response} ->
@@ -247,8 +249,6 @@ handle_cast(_Request, State) ->
 %% @doc handle messages
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
-    ?LOG_DEBUG("data: ~p", [Data]),
-    %% XXX ineffecient binary cat, buffer can be wrapped in a queue
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
@@ -297,8 +297,12 @@ churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
            lists:filter(fun(C) -> cmds_response(C, Response) end,
                         gb_trees:values(Cmds))),
     churn_buffer(State);
-churn_buffer(State, [<<"+">> | Response]) ->
-    ?LOG_DEBUG("Continuation: ~p", [Response]),
+churn_buffer(#state{cmds=Cmds} = State, [<<"+">> | Response]) ->
+    ?LOG_DEBUG("+: ~p", [Response]),
+    ok = lists:foreach(
+           fun({cmd, Pid, _}) ->
+                   Pid ! {'+', Response}
+           end, gb_trees:values(Cmds)),
     churn_buffer(State);
 churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
     ?LOG_DEBUG("Tag: ~p, Rest: ~p", [Tag, Response]),
