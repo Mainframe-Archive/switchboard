@@ -6,11 +6,11 @@
 -behaviour(gen_server).
 
 %% Interface exports
--export([start/1,
-         start_link/1,
+-export([start/1, start/2,
+         start_link/1, start_link/2,
          stop/1,
-         cast/2,
-         call/2, call/3,
+         cast/2, cast/3,
+         call/2, call/3, call/4,
          recv/0, recv/1]).
 
 %% Callback exports
@@ -45,47 +45,57 @@
 
 %% Types
 -type socket() :: ssl:sslsocket() | gen_tcp:socket().
+%% connspec() specifies a tcp connection, see gen_tcp:connect args
 -type connspec() :: {ssl | plain, Host :: binary(), Port :: integer()} |
                     {ssl | plain, Host :: binary(),
                      Port :: integer(), Options :: list()} |
                     {ssl | plain, Host :: binary(),
                      Port :: integer(), Options :: list(), Timeout :: integer()}.
+
+%% auth() specifies an authorization type and arguments
+%% XXX - Avoid operating with user credentials in plaintext
 -type auth_plain() :: {plain, Username :: binary(), Password :: binary()}.
 -type auth_xoauth2() :: {xoauth2, Account :: binary(), Token :: binary()}.
--type auth() ::  auth_plain() | auth_xoauth2().
+-type auth() :: auth_plain() | auth_xoauth2().
 
+%% opt() specifies an option that the imap process can be started with
+%% init_callback will be called in the init gen_server callback function (gproc reg)
+-type opt() :: {init_callback, fun(() -> ok)}.
+
+%% response() is passed into the applicable commands dispatch fun
+-type response() :: {'*' | '+' | 'OK' | 'NO' | 'BAD', imap_term()}.
+
+%% cmd() specifies a valid command that can be issued via call or cast
 -type cmd() :: {login, auth()}
              | list
              | {select, mailbox()}
              | idle.
 
--type internal_cmd() :: {cmd, pid() | none, cmd()}.
+%% cmd_opt() specifies an optional setting for a command
+%% The dispatch key refers to a dispatch function that is called with
+%% the command's responses as they arrive
+-type cmd_opt() :: {dispatch, fun((response()) -> ok)}.
+
+%% internal_cmd() is used to wrap a cmd with options inside the gen_server
+-type internal_cmd() :: {cmd, cmd(), [cmd_opt()]}.
 
 %% Mailboxes
 -type mailbox() :: binary().
 
-%% Parse Types
--type imap_term() :: binary()               % Atom    [A-Za-z0-9+]+
-                   | integer()              % Number  [0-9]+
-                   | {string, binary()}     % String  "*" | {n}*
-                   | [imap_term()]          % List    (imap_term())
-                   | nil.                   % NIL     NIL
+%% imap_term() a single post-parse imap token
+-type imap_term() :: binary()               % Atom
+                   | integer()              % Number
+                   | {string, binary()}     % String
+                   | [imap_term()]          % List
+                   | nil                    % NIL
+                   | '[' | ']'.             % [ | ]
 
--type token() :: integer()            %% Number
-               | binary()             %% Atom
-               | {string, binary()}   %% String
-               | nil                  %% NIL
-               | crlf                 %% CRLF / \r\n
-               | '(' | ')'
-               | '[' | ']'.
+%% token() is a single post-tokenize imap token
+-type token() :: imap_term()
+               | crlf                       % CRLF / \r\n
+               | '(' | ')'.                 % ( | )
 
-% non quoted terminators:
-%  32 sp
-%  40 (
-%  41 )
-%  91 [
-%  93 ]
-
+%% tokenize_state() private -- the possible tokenize states
 -type tokenize_state() :: none
                         | {quoted, binary()}
                         | {literal, binary()}
@@ -99,7 +109,7 @@
               mailbox/0]).
 
 
-%% Records
+%% imap gen_server state
 -record(state, {socket :: socket(),
                 connspec :: connspec(),
                 auth = none :: none | auth(),
@@ -107,6 +117,7 @@
                 tokenize_state = {<<>>, none} :: {binary(), tokenize_state()},
                 parse_state = {[], []} :: {[token()], [imap_term()]},
                 cmds = gb_trees:empty() :: gb_trees:tree()}).
+
 
 %%==============================================================================
 %% Interface exports
@@ -122,18 +133,30 @@ start_dispatch() ->
 -endif.
 
 
-%% @doc start a standalone IMAP connection
+%% @equiv start(ConnSpec, [])
 -spec start(connspec()) ->
     {ok, pid()} | _.
 start(ConnSpec) ->
-    gen_server:start(?MODULE, ConnSpec, []).
+    start(ConnSpec, []).
+
+%% @doc start a standalone IMAP connection
+-spec start(connspec(), [opt()]) ->
+    {ok, pid()} | _.
+start(ConnSpec, Opts) ->
+    gen_server:start(?MODULE, {ConnSpec, Opts}, []).
 
 
-%% @doc start an IMAP connection as part of the supervision tree
+%% @equiv start_link(ConnSpec, [])
 -spec start_link(connspec()) ->
     {ok, pid()} | _.
 start_link(ConnSpec) ->
-    gen_server:start_link(?MODULE, ConnSpec, []).
+    start_link(ConnSpec, []).
+
+%% @doc start an IMAP connection as part of the supervision tree
+-spec start_link(connspec(), [opt()]) ->
+    {ok, pid()} | _.
+start_link(ConnSpec, Opts) ->
+    gen_server:start_link(?MODULE, {ConnSpec, Opts}, []).
 
 
 %% @doc stop the server
@@ -143,23 +166,36 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
+%% @equiv cast(Server, Cmd, [{dispatch, fun}])
 -spec cast(pid(), cmd()) ->
     ok.
 cast(Server, Cmd) ->
-    gen_server:cast(Server, {cmd, self(), Cmd}).
+    cast(Server, Cmd, [{dispatch, dispatch_to_ref(self())}]).
+
+%% @doc asynchronously cast the cmd, return without waiting for a response
+-spec cast(pid(), cmd(), [cmd_opt()]) ->
+    ok.
+cast(Server, Cmd, Opts) ->
+    gen_server:cast(Server, {cmd, Cmd, Opts}).
 
 
-%% @equiv call(Server, Cmd, ?CALL_TIMEOUT)
+%% @equiv call(Server, Cmd, [{dispatch, fun}])
 -spec call(pid(), cmd()) ->
     {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd) ->
-    call(Server, Cmd, ?CALL_TIMEOUT).
+    call(Server, Cmd, [{dispatch, dispatch_to_ref(self())}]).
+
+%% @equiv call(Server, Cmd, Opts, ?CALL_TIMEOUT)
+-spec call(pid(), cmd(), [cmd_opt()]) ->
+    {ok, _} | {'+', _} | {error, _}.
+call(Server, Cmd, Opts) ->
+    call(Server, Cmd, Opts, ?CALL_TIMEOUT).
 
 %% @doc call the command, waiting until timeout for all responses
--spec call(pid(), cmd(), integer()) ->
+-spec call(pid(), cmd(), [cmd_opt()], integer()) ->
     {ok, _} | {'+', _} | {error, _}.
-call(Server, Cmd, Timeout) ->
-    gen_server:cast(Server, {cmd, self(), Cmd}),
+call(Server, Cmd, Opts, Timeout) ->
+    gen_server:cast(Server, {cmd, Cmd, Opts}),
     Ref = monitor(process, Server),
     Responses = recv(Timeout, Ref),
     true = demonitor(Ref),
@@ -211,21 +247,29 @@ recv(Timeout, MonitorRef, Responses) ->
 %%==============================================================================
 
 %% @doc init callback
--spec init(connspec()) ->
+-spec init({connspec(), [opt()]}) ->
     {ok, #state{}} | {stop, _}.
-init({SocketType, Host, Port}) ->
-    init({SocketType, Host, Port, []});
-init({SocketType, Host, Port, Options}) ->
-    init({SocketType, Host, Port, Options, 5000});
-init({SocketType, Host, Port, Options, Timeout} = ConnSpec) ->
-    OptionDefaults = [binary],
-    case SocketType:connect(binary_to_list(Host), Port, Options ++ OptionDefaults, Timeout) of
+init({{SocketType, Host, Port}, Opts}) ->
+    init({{SocketType, Host, Port, []}, Opts});
+init({{SocketType, Host, Port, SocketOpts}, Opts}) ->
+    init({{SocketType, Host, Port, SocketOpts, 5000}, Opts});
+init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
+    %% This lil bit of overengineering is so I can use gproc to reg the process
+    case proplists:get_value(init_callback, Opts) of
+        undefined ->
+            undefined;
+        Callback ->
+            Callback()
+    end,
+    SocketOptDefaults = [binary],
+    case SocketType:connect(binary_to_list(Host), Port, SocketOpts ++ SocketOptDefaults,
+                            Timeout) of
         {ok, Socket} ->
             {ok, #state{socket=Socket, connspec=ConnSpec}};
         {error, ssl_not_started} ->
             %% If ssl app isn't started, attempt to restart and then retry init
             start_app(ssl),
-            init(ConnSpec);
+            init({ConnSpec, Opts});
         {error, Reason} ->
             {stop, Reason}
     end.
@@ -235,7 +279,8 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% @doc handle asynchronous casts
-handle_cast({cmd, _, Cmd} = IntCmd, #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
+handle_cast({cmd, Cmd, _} = IntCmd,
+            #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
     ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(Cmd)]),
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
@@ -274,6 +319,16 @@ terminate(Reason, _State) ->
 %% Internal functions
 %%==============================================================================
 
+%% @doc returns a dispatch function for sending messages to the provided pid
+-spec dispatch_to_ref(pid() | port() | atom()) ->
+    fun((response()) -> ok).
+dispatch_to_ref(Ref) ->
+    fun(M) ->
+            Ref ! M,
+            ok
+    end.
+
+
 %% @doc churn the buffer by parsing responses and sending them to the proper processes
 -spec churn_buffer(#state{}) ->
     #state{}.
@@ -291,8 +346,8 @@ churn_buffer(State, none) ->
 churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
     ?LOG_DEBUG("UNTAGGED: ~p", [Response]),
     ok = lists:foreach(
-           fun({cmd, Pid, _}) ->
-                   Pid ! {'*', Response}
+           fun(Cmd) ->
+                   dispatch(Cmd, {'*', Response})
            end,
            lists:filter(fun(C) -> cmds_response(C, Response) end,
                         gb_trees:values(Cmds))),
@@ -300,24 +355,39 @@ churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
 churn_buffer(#state{cmds=Cmds} = State, [<<"+">> | Response]) ->
     ?LOG_DEBUG("+: ~p", [Response]),
     ok = lists:foreach(
-           fun({cmd, Pid, _}) ->
-                   Pid ! {'+', Response}
+           fun(Cmd) ->
+                   dispatch(Cmd, {'+', Response})
            end, gb_trees:values(Cmds)),
     churn_buffer(State);
 churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
     ?LOG_DEBUG("Tag: ~p, Rest: ~p", [Tag, Response]),
     churn_buffer(case gb_trees:lookup(Tag, Cmds) of
-                     {value, {cmd, Pid, _}} ->
-                         Pid ! case Response of
-                                   [<<"OK">> | Rest]  -> {'OK', Rest};
-                                   [<<"NO">> | Rest]  -> {'NO', Rest};
-                                   [<<"BAD">> | Rest] -> {'BAD', Rest}
-                               end,
+                     {value, Cmd} ->
+                         ok = dispatch(Cmd, case Response of
+                                           [<<"OK">> | Rest]  -> {'OK', Rest};
+                                           [<<"NO">> | Rest]  -> {'NO', Rest};
+                                           [<<"BAD">> | Rest] -> {'BAD', Rest}
+                                       end),
                          State#state{cmds=gb_trees:delete(Tag, Cmds)};
                      none ->
                          ?LOG_WARNING(churn_buffer, "Unknown Cmd Tag: ~p", [Tag]),
                          State
                  end).
+
+
+%% @doc helper for dispatching a msg using the cmds dispatch fun[s]
+-spec dispatch(internal_cmd(), _) ->
+    ok.
+dispatch({cmd, _, Opts} = IntCmd, Msg) ->
+    dispatch(IntCmd, Msg, proplists:get_all_values(dispatch, Opts)).
+
+-spec dispatch(internal_cmd(), A, [fun((A) -> ok)]) ->
+    ok when A :: _.
+dispatch(_IntCmd, _Msg, []) ->
+    ok;
+dispatch(IntCmd, Msg, [Fun | Rest]) ->
+    ok = Fun(Msg),
+    dispatch(IntCmd, Msg, Rest).
 
 
 %% @doc returns true if the response is associated with the given cmd

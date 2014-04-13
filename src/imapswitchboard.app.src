@@ -9,6 +9,7 @@
                   lager,
                   kernel,
                   stdlib,
+                  gproc,
                   eunit
                  ]},
   {mod, {switchboard_app, []}},

@@ -2,10 +2,13 @@
 -module(imapswitchboard).
 
 -export([start/0,
-         add/2, add/3]).
+         add/2, add/3,
+         get/3,
+         key_for/3]).
 
 -export([add_dispatch/0]).
 
+-type process() :: account | active.
 
 %%==============================================================================
 %% External API
@@ -34,6 +37,21 @@ add_dispatch() ->
     add({ssl, <<"imap.gmail.com">>, 993},
         {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>},
         [<<"INBOX">>]).
+
+
+
+get(ConnSpec, Auth, Process) ->
+    gproc:where(switchboard_accounts:key_for(ConnSpec, Auth, Process)).
+
+
+%% TODO -- this will be used
+-spec key_for(imap:connspec(), imap:auth(), account | active) ->
+    {n, l, {switchboard, {process(), imap:connspec()}}}.
+key_for(ConnSpec, Auth, account) ->
+    {n, l, {switchboard, {account, {ConnSpec, Auth}}}};
+key_for(ConnSpec, Auth, active) ->
+    {n, l, {switchboard, {active, {ConnSpec, Auth}}}}.
+
 
 
 %%==============================================================================

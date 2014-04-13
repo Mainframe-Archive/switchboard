@@ -17,11 +17,11 @@
 -spec start_link(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailboxes) ->
+    gproc:reg(imapswitchboard:key_for(ConnSpec, Auth, account)),
     case supervisor:start_link(?MODULE, {ConnSpec, Auth, Mailboxes}) of
         {ok, Pid} ->
             %% Auth the active connection
             {ok, Active} = which(Pid, active),
-            %% TODO - Decide whether to call or cast here
             {ok, _} = imap:call(Active, {login, Auth}),
             {ok, Pid};
         {error, Reason} ->
@@ -40,6 +40,8 @@ which(Sup, Id) ->
             {error, undefined}
     end.
 
+
+
 %%==============================================================================
 %% Callback exports
 %%==============================================================================
@@ -48,7 +50,13 @@ init({ConnSpec, Auth, Mailboxes}) ->
     RestartStrategy = one_for_all,
     MaxR = MaxT = 5,
     ActiveChildSpec = {active,
-                       {imap, start_link, [ConnSpec]},
+                       {imap, start_link,
+                        [ConnSpec,
+                         [{init_callback,
+                           fun() ->
+                                   gproc:reg_or_locate(
+                                     imapswitchboard:key_for(ConnSpec, Auth, active))
+                           end}]]},
                        transient, % permanent | temporary
                        5000, % brutal_kill | int() % ms
                        worker, % supervisor
@@ -59,8 +67,15 @@ init({ConnSpec, Auth, Mailboxes}) ->
                        infinity,
                        supervisor,
                        [switchboard_idlers]},
+    OperatorChildSpec = {operator,
+                         {switchboard_operator, start_link, [ConnSpec]},
+                         transient,
+                         1000,
+                         worker,
+                         [switchboard_operator]},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ActiveChildSpec,
-                                          IdlersChildSpec]}}.
+                                          IdlersChildSpec,
+                                          OperatorChildSpec]}}.
 
 
 %%==============================================================================

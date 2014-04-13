@@ -9,6 +9,13 @@
 
 * DONE async + sync API (call v cast)
 
+
+* DONE wire up idle messages to switchboard_operator with gproc
+* TODO have dispatch idlers fun call operator fun???
+  Hell yes -- let's keep the API nice and explicit. Hey, it could
+  then be called synchronously too. Though, that's an awful idea.
+* TODO imapswitchboard pubsub
+* DONE imap dispatch callback function
 * TODO add documentation for adding an IMAP command
   I want to keep this to one file, so I won't be able to make it
   extensible via behaviors. Instead, let's make it as easy as
