@@ -1,9 +1,13 @@
-* TODO convert imap.erl from gen_server to gen_fsm
+* TODO give imap.erl states
   see https://github.com/akheron/cpython/blob/5bd36f147642ed6d8237785ad3c7d69d702e5832/Lib/imaplib.py#L57
   for command to state mapping
 
-* TODO allow multiple commands to be issued
+* DONE allow multiple commands to be issued
   Maintain a gb_tree of Tag -> {Pid, Cmd}
+
+* DONE separate tokenizing and parsing (my tokenizer is more of a lexer)
+
+* DONE async + sync API (call v cast)
 
 * TODO add documentation for adding an IMAP command
   I want to keep this to one file, so I won't be able to make it
