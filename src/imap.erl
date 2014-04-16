@@ -506,9 +506,13 @@ decode_line(Data) ->
 -spec decode_line({binary(), tokenize_state()}, {[token()], [imap_term()]}) ->
     {[imap_term()] | none,  {binary(), tokenize_state()}, {[token()], [imap_term()]}}.
 decode_line({Data, TokenizeState}, {TokenBuffer, ParseAcc}) ->
-    {Tokens, Data2, TokenizeState2} = tokenize(Data, TokenizeState),
-    {Line, TokenBuffer2, ParseAcc2} = parse(TokenBuffer ++ Tokens, ParseAcc),
-    {Line, {Data2, TokenizeState2}, {TokenBuffer2, ParseAcc2}}.
+    case tokenize(Data, TokenizeState) of
+        {none, Data2, TokenizeState2} ->
+            {none, {Data2, TokenizeState2}, {TokenBuffer, ParseAcc}};
+        {Tokens, Data2, TokenizeState2} ->
+            {Line, TokenBuffer2, ParseAcc2} = parse(TokenBuffer ++ Tokens, ParseAcc),
+            {Line, {Data2, TokenizeState2}, {TokenBuffer2, ParseAcc2}}
+    end.
 
 
 %% @doc tokenize the imap data
@@ -601,7 +605,10 @@ pop_token(<<$", Rest/binary>>, {quoted, Acc}) ->
 pop_token(<<$\r, $\n, _>>, {quoted, _}) ->
     throw({error, crlf_in_quoted});
 pop_token(<<C, Rest/binary>>, {quoted, Acc}) ->
-    pop_token(Rest, {quoted, <<Acc/binary, C>>}).
+    pop_token(Rest, {quoted, <<Acc/binary, C>>});
+
+pop_token(Binary, _) ->
+    {none, Binary, none}.
 
 
 % -type parse_return() :: {[parse_term()] | none,
@@ -620,9 +627,13 @@ parse([], ParseAcc) ->
 parse([crlf | Rest], ParseAcc) ->
     {lists:reverse(ParseAcc), Rest, []};
 
-parse(['(' | Rest], ParseAcc) ->
-    {List, Rest2, []} = parse(Rest),
-    parse(Rest2, [List | ParseAcc]);
+parse(['(' | Rest] = Tokens, ParseAcc) ->
+    case parse(Rest) of
+        {List, Rest2, []} ->
+            parse(Rest2, [List | ParseAcc]);
+        {none, _, _} ->
+            {none, Tokens, ParseAcc}
+    end;
 parse([')' | Rest], ParseAcc) ->
     {lists:reverse(ParseAcc), Rest, []};
 
