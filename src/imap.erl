@@ -11,7 +11,8 @@
          stop/1,
          cast/2, cast/3,
          call/2, call/3, call/4,
-         recv/0, recv/1]).
+         recv/0, recv/1,
+         mailbox_resps/1]).
 
 %% Callback exports
 -export([init/1,
@@ -68,6 +69,7 @@
 %% cmd() specifies a valid command that can be issued via call or cast
 -type cmd() :: {login, auth()}
              | list
+             | {examine, mailbox()}
              | {select, mailbox()}
              | {fetch, seqset()} | {fetch, seqset(), [binary()]}
              | {uid, {fetch, seqset()}} | {uid, {fetch, seqset(), [binary()]}}
@@ -86,7 +88,7 @@
 -type mailbox() :: binary().
 
 %% Sequence Sets
--type seqset() :: integer() | {integer() | none, integer() | none}.
+-type seqset() :: '*' | integer() | {integer() | none, integer() | none}.
 
 %% imap_term() a single post-parse imap token
 -type imap_term() :: binary()               % Atom
@@ -249,6 +251,25 @@ recv(Timeout, MonitorRef, Responses) ->
               {error, timeout}
         end.
 
+
+-spec mailbox_resps([response()]) ->
+    [].
+mailbox_resps(Resps) ->
+    mailbox_resps(Resps, []).
+
+-spec mailbox_resps([response()], []) ->
+    [].
+mailbox_resps([], Acc) ->
+    lists:reverse(Acc);
+mailbox_resps([{'*', [<<"FLAGS">>, Flags]} | Resps], Acc) ->
+    mailbox_resps(Resps, [{flags, Flags} | Acc]);
+mailbox_resps([{'*', [Exists, <<"EXISTS">>]} | Resps], Acc) ->
+    mailbox_resps(Resps, [{exists, Exists} | Acc]);
+mailbox_resps([{'*', [Recent, <<"RECENT">>]} | Resps], Acc) ->
+    mailbox_resps(Resps, [{recent, Recent} | Acc]);
+mailbox_resps([_ | Resps], Acc) ->
+    mailbox_resps(Resps, Acc).
+
 %%==============================================================================
 %% Callback exports
 %%==============================================================================
@@ -289,7 +310,7 @@ handle_call(_Request, _From, State) ->
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
-    ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(Cmd)]),
+    % ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(Cmd)]),
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
     {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
 handle_cast(stop, State) ->
@@ -301,7 +322,7 @@ handle_cast(_Request, State) ->
 %% @doc handle messages
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
-    ?LOG_DEBUG("Received: ~p", [Data]),
+    % ?LOG_DEBUG("Received: ~p", [Data]),
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
@@ -353,7 +374,7 @@ churn_buffer(#state{tokenize_state=TokenizeState, parse_state=ParseState} = Stat
 churn_buffer(State, none) ->
     State;
 churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
-    ?LOG_DEBUG("UNTAGGED: ~p", [Response]),
+    % ?LOG_DEBUG("UNTAGGED: ~p", [Response]),
     ok = lists:foreach(
            fun(Cmd) ->
                    dispatch(Cmd, {'*', Response})
@@ -369,7 +390,7 @@ churn_buffer(#state{cmds=Cmds} = State, [<<"+">> | Response]) ->
            end, gb_trees:values(Cmds)),
     churn_buffer(State);
 churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
-    ?LOG_DEBUG("Tag: ~p, Rest: ~p", [Tag, Response]),
+    % ?LOG_DEBUG("Tag: ~p, Rest: ~p", [Tag, Response]),
     churn_buffer(case gb_trees:lookup(Tag, Cmds) of
                      {value, Cmd} ->
                          ok = dispatch(Cmd, case Response of
@@ -422,6 +443,8 @@ cmd_to_list(list) ->
     [<<"LIST">>];
 cmd_to_list({select, Mailbox}) ->
     [<<"SELECT">>, Mailbox];
+cmd_to_list({examine, Mailbox}) ->
+    [<<"EXAMINE">>, Mailbox];
 
 cmd_to_list({uid, {fetch, SeqSet}}) ->
     [<<"UID">> | cmd_to_list({fetch, SeqSet})];
@@ -457,6 +480,8 @@ seqset_to_list({Start, none}) ->
     <<(integer_to_binary(Start))/binary, $:>>;
 seqset_to_list({Start, Stop}) ->
     <<(integer_to_binary(Start))/binary, $:, (integer_to_binary(Stop))/binary>>;
+seqset_to_list('*') ->
+    <<"*">>;
 seqset_to_list(Item) ->
     integer_to_binary(Item).
 

@@ -3,12 +3,16 @@
 
 -export([start/0,
          add/2, add/3,
-         get/3,
-         key_for/3]).
+         key_for/3,
+         where/3,
+         subscribe/1,
+         publish/2]).
 
--export([add_dispatch/0]).
+-export([add_dispatch/0,
+         where_dispatch/0]).
 
 -type process() :: account | active.
+-type keytype() :: account | active | {idler, imap:mailbox()}.
 
 %%==============================================================================
 %% External API
@@ -26,31 +30,47 @@ add(ConnSpec, Auth) ->
     add(ConnSpec, Auth, []).
 
 %% @doc add a new account to be monitored
-%% TODO return type?
+%% @todo return type?
 -spec add(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startchild_ret().
 add(ConnSpec, Auth, Mailboxes) ->
     switchboard_sup:start_child(ConnSpec, Auth, Mailboxes).
 
 
+%% Testing
 add_dispatch() ->
     add({ssl, <<"imap.gmail.com">>, 993},
         {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>},
         [<<"INBOX">>]).
 
 
-get(ConnSpec, Auth, Process) ->
-    gproc:where(switchboard_accounts:key_for(ConnSpec, Auth, Process)).
+%% TODO -- this will be used to generate gproc keys
+-spec key_for(imap:connspec(), imap:auth(), Type) ->
+    {n, l, {imapswitchboard, {Type, {process(), imap:connspec()}}}}
+        when Type :: keytype().
+key_for(ConnSpec, Auth, Type) ->
+    {n, l, {imapswitchboard, {Type, {ConnSpec, Auth}}}}.
 
 
-%% TODO -- this will be used
--spec key_for(imap:connspec(), imap:auth(), account | active) ->
-    {n, l, {switchboard, {process(), imap:connspec()}}}.
-key_for(ConnSpec, Auth, account) ->
-    {n, l, {switchboard, {account, {ConnSpec, Auth}}}};
-key_for(ConnSpec, Auth, active) ->
-    {n, l, {switchboard, {active, {ConnSpec, Auth}}}}.
+%% TODO -- this will be used to generate gproc keys
+-spec where(imap:connspec(), imap:auth(), keytype()) ->
+    pid().
+where(ConnSpec, Auth, Type) ->
+    gproc:where(key_for(ConnSpec, Auth, Type)).
 
+
+where_dispatch() ->
+    where({ssl, <<"imap.gmail.com">>, 993},
+          {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>},
+          active).
+
+
+subscribe(new) ->
+    gproc:reg({p, l, {imapswitchboard, new}}).
+
+
+publish(new, Msg) ->
+    gproc:send({p, l, {imapswitchboard, new}}, Msg).
 
 
 %%==============================================================================

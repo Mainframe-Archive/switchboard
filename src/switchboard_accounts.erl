@@ -57,25 +57,18 @@ init({ConnSpec, Auth, Mailboxes}) ->
                                    gproc:reg_or_locate(
                                      imapswitchboard:key_for(ConnSpec, Auth, active))
                            end}]]},
-                       permanent, % permanent | temporary
-                       5000, % brutal_kill | int() % ms
-                       worker, % supervisor
-                       [imap]}, % dynamic
+                       permanent,
+                       5000,
+                       worker,
+                       [imap]},
     IdlersChildSpec = {idlers,
                        {switchboard_idlers, start_link, [ConnSpec, Auth, Mailboxes]},
                        permanent,
                        infinity,
                        supervisor,
                        [switchboard_idlers]},
-    OperatorChildSpec = {operator,
-                         {switchboard_operator, start_link, [ConnSpec, Auth]},
-                         permanent,
-                         1000,
-                         worker,
-                         [switchboard_operator]},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ActiveChildSpec,
-                                          IdlersChildSpec,
-                                          OperatorChildSpec]}}.
+                                          IdlersChildSpec]}}.
 
 
 %%==============================================================================
