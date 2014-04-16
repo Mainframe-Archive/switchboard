@@ -69,6 +69,9 @@
 -type cmd() :: {login, auth()}
              | list
              | {select, mailbox()}
+             | {fetch, seqset()} | {fetch, seqset(), [binary()]}
+             | {uid, {fetch, seqset()}} | {uid, {fetch, seqset(), [binary()]}}
+             | noop
              | idle.
 
 %% cmd_opt() specifies an optional setting for a command
@@ -81,6 +84,9 @@
 
 %% Mailboxes
 -type mailbox() :: binary().
+
+%% Sequence Sets
+-type seqset() :: integer() | {integer() | none, integer() | none}.
 
 %% imap_term() a single post-parse imap token
 -type imap_term() :: binary()               % Atom
@@ -106,7 +112,8 @@
               auth_plain/0,
               auth_xoauth2/0,
               auth/0,
-              mailbox/0]).
+              mailbox/0,
+              seqset/0]).
 
 
 %% imap gen_server state
@@ -294,6 +301,7 @@ handle_cast(_Request, State) ->
 %% @doc handle messages
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
+    ?LOG_DEBUG("Received: ~p", [Data]),
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
@@ -308,6 +316,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
+%% TODO -- on termination send {error, _} msgs to all open cmds
 terminate(Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
     ?LOG_WARNING(terminate, "TERMINATING ~p", [Reason]),
     SocketType:close(Socket);
@@ -400,7 +409,7 @@ cmds_response(_Cmd, _Response) ->
 -spec cmd_to_data(cmd()) ->
     iodata().
 cmd_to_data(InternalCmd) ->
-    %% XXX -- ineffecient end append
+    %% XXX -- ineffecient end append. Luckily the lists are simple
     intersperse(" ", cmd_to_list(InternalCmd)) ++ ["\r\n"].
 
 
@@ -408,13 +417,48 @@ cmd_to_data(InternalCmd) ->
 -spec cmd_to_list(cmd()) ->
     iodata().
 cmd_to_list({login, {plain, Username, Password}}) ->
-    ["LOGIN", Username, Password];
-cmd_to_list({select, Mailbox}) ->
-    ["SELECT", Mailbox];
+    [<<"LOGIN">>, Username, Password];
 cmd_to_list(list) ->
-    ["LIST"];
+    [<<"LIST">>];
+cmd_to_list({select, Mailbox}) ->
+    [<<"SELECT">>, Mailbox];
+
+cmd_to_list({uid, {fetch, SeqSet}}) ->
+    [<<"UID">> | cmd_to_list({fetch, SeqSet})];
+cmd_to_list({uid, {fetch, SeqSet, Items}}) ->
+    [<<"UID">> | cmd_to_list({fetch, SeqSet, Items})];
+cmd_to_list({fetch, SeqSet}) ->
+    cmd_to_list({fetch, SeqSet, <<"full">>});
+cmd_to_list({fetch, SeqSet, Data}) ->
+    [<<"FETCH">>, seqset_to_list(SeqSet), list_to_imap_list(Data)];
+
+cmd_to_list(noop) ->
+    [<<"NOOP">>];
 cmd_to_list(idle) ->
-    ["IDLE"].
+    [<<"IDLE">>].
+
+
+%% @doc returns the list as imap command tokens
+%% I don't much like how I'm building commands...
+-spec list_to_imap_list(binary() | [binary()]) ->
+    binary() | [binary()].
+list_to_imap_list(List) when is_list(List) ->
+    [<<"(">> | intersperse(" ", List)] ++ [<<")">>];
+list_to_imap_list(Term) ->
+    Term.
+
+
+%% @doc returns the list of command tokens associated with the sequence set
+-spec seqset_to_list(seqset()) ->
+    iodata().
+seqset_to_list({none, Stop}) ->
+    <<$:, (integer_to_binary(Stop))/binary>>;
+seqset_to_list({Start, none}) ->
+    <<(integer_to_binary(Start))/binary, $:>>;
+seqset_to_list({Start, Stop}) ->
+    <<(integer_to_binary(Start))/binary, $:, (integer_to_binary(Stop))/binary>>;
+seqset_to_list(Item) ->
+    integer_to_binary(Item).
 
 
 %% @doc intersperses the separator between list elements
@@ -594,6 +638,17 @@ parse([Token | Rest], ParseAcc) ->
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+
+%% Commands
+cmd_test_() ->
+    [?_assertEqual([<<"UID">>, <<"FETCH">>, <<"1:9">>, <<"full">>],
+                   cmd_to_list({uid, {fetch, {1, 9}}})),
+     seqset_to_list_assertions()].
+
+seqset_to_list_assertions() ->
+    [?_assertEqual(<<"1">>, seqset_to_list(1)),
+     ?_assertEqual(<<"1:9">>, seqset_to_list({1, 9}))].
+
 
 %% Tokenize
 pop_token_test_() ->

@@ -39,7 +39,6 @@ add_dispatch() ->
         [<<"INBOX">>]).
 
 
-
 get(ConnSpec, Auth, Process) ->
     gproc:where(switchboard_accounts:key_for(ConnSpec, Auth, Process)).
 

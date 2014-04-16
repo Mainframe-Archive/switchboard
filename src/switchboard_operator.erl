@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% Interface exports
--export([start_link/1,
+-export([start_link/2,
          stop/1,
          idle_key/1,
          dispatch_to_key/1]).
@@ -17,14 +17,15 @@
          terminate/2]).
 
 %% Records
--record(state, {currentuid = undefined :: undefined | integer()}).
+-record(state, {last_uid = undefined :: undefined | integer(),
+                last_uid_validity = undefined :: undefined | integer()}).
 
 %%==============================================================================
 %% Interface exports
 %%==============================================================================
 
-start_link(ConnSpec) ->
-    gen_server:start_link(?MODULE, ConnSpec, []).
+start_link(ConnSpec, Auth) ->
+    gen_server:start_link(?MODULE, {ConnSpec, Auth}, []).
 
 stop(Pid) ->
     gen_server:cast(Pid, stop).
