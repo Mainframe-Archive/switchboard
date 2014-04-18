@@ -77,21 +77,21 @@ handle_info({idle, {'*', [_, <<"EXISTS">>]}},
     Uid = if is_integer(BinUid) -> BinUid;
              is_binary(BinUid)  -> binary_to_integer(BinUid)
           end,
-    lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
+    % lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
             {ok, Emails} = imap:call(Active, {uid, {fetch, {LastUid + 1, Uid}}}),
             lists:foreach(
              fun(Email) ->
                      imapswitchboard:publish(new, {new, {ConnSpec, Auth}, Email})
-             end, Emails),
-            lager:info("New Emails: ~p", [Emails]);
+             end, Emails);
+            % lager:info("New Emails: ~p", [Emails]);
        true -> ok
     end,
     {noreply, State#state{last_uid=Uid}};
 handle_info({idle, {'+', [<<"idling">>]}}, State) ->
     {noreply, State};
-handle_info({idle, Msg}, State) ->
-    lager:info("Unrecognized msg: ~p", [Msg]),
+handle_info({idle, _Msg}, State) ->
+    % lager:info("Unrecognized msg: ~p", [Msg]),
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.

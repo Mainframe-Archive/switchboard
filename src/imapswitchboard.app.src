@@ -6,7 +6,6 @@
   {modules, []},
   {registered, [switchboard_sup]},
   {applications, [
-                  lager,
                   kernel,
                   stdlib,
                   gproc,
