@@ -12,7 +12,7 @@
          cast/2, cast/3,
          call/2, call/3, call/4,
          recv/0, recv/1,
-         mailbox_resps/1]).
+         clean/1]).
 
 %% Callback exports
 -export([init/1,
@@ -252,23 +252,18 @@ recv(Timeout, MonitorRef, Responses) ->
         end.
 
 
--spec mailbox_resps([response()]) ->
-    [].
-mailbox_resps(Resps) ->
-    mailbox_resps(Resps, []).
+%% @doc clean a response -- this is a convenience that can cut some fidelity
+clean({'*', [_, <<"FETCH">>, _]} = Fetch) ->
+    clean_fetch(Fetch);
+clean({'*', [<<"FLAGS">>, Flags]}) ->
+    {flags, Flags};
+clean({'*', [Exists, <<"EXISTS">>]}) ->
+    {exists, Exists};
+clean({'*', [Recent, <<"RECENT">>]}) ->
+    {recent, Recent};
+clean({'OK',[<<"Success">>]}) ->
+    {ok, success}.
 
--spec mailbox_resps([response()], []) ->
-    [].
-mailbox_resps([], Acc) ->
-    lists:reverse(Acc);
-mailbox_resps([{'*', [<<"FLAGS">>, Flags]} | Resps], Acc) ->
-    mailbox_resps(Resps, [{flags, Flags} | Acc]);
-mailbox_resps([{'*', [Exists, <<"EXISTS">>]} | Resps], Acc) ->
-    mailbox_resps(Resps, [{exists, Exists} | Acc]);
-mailbox_resps([{'*', [Recent, <<"RECENT">>]} | Resps], Acc) ->
-    mailbox_resps(Resps, [{recent, Recent} | Acc]);
-mailbox_resps([_ | Resps], Acc) ->
-    mailbox_resps(Resps, Acc).
 
 %%==============================================================================
 %% Callback exports
@@ -515,10 +510,45 @@ start_app(App) ->
     start_app([App]).
 
 
+clean_fetch({'*', [_Id, <<"FETCH">>, Params]}) ->
+    clean_fetch(Params, []).
+
+clean_fetch([], Acc) ->
+    {fetch, Acc};
+clean_fetch([<<"UID">>, Uid | Rest], Acc) ->
+    clean_fetch(Rest, [{uid, Uid} | Acc]);
+clean_fetch([<<"FLAGS">>, Flags | Rest], Acc) ->
+    clean_fetch(Rest, [{flags, Flags} | Acc]);
+clean_fetch([<<"INTERNALDATE">>, {string, InternalDate} | Rest], Acc) ->
+    clean_fetch(Rest, [{internaldate, InternalDate} | Acc]);
+clean_fetch([<<"RFC822.SIZE">>, Rfc822Size | Rest], Acc) ->
+    clean_fetch(Rest, [{rfc822size, Rfc822Size} | Acc]);
+clean_fetch([<<"ENVELOPE">>,
+             [{string, Date}, {string, Subject},
+              From, Sender, ReplyTo, To, Cc, Bcc, InReplyTo,
+              {string, MessageId}] | Rest], Acc) ->
+    %% @todo parse the date
+    Envelope = [{date, Date},
+                {subject, Subject},
+                {from, clean_address(From)},
+                {sender, clean_address(Sender)},
+                {replyto, clean_address(ReplyTo)},
+                {to, clean_address(To)},
+                {cc, clean_address(Cc)},
+                {bcc, clean_address(Bcc)},
+                {inreplyto, clean_address(InReplyTo)},
+                {messageid, MessageId}],
+    clean_fetch(Rest, [{envelope, Envelope} | Acc]).
+
+%% @doc clean the provided address
+-spec clean_address([{string, binary()}]) ->
+    [proplist:property()].
+clean_address([{string, Name}, {string, _Adl}, {string, MailBox}, {string, Host}]) ->
+    [{name, Name}, {address, <<MailBox/binary, $@, Host/binary>>}].
+
 %%==============================================================================
 %% Response Tokenizing + Parsing
 %%==============================================================================
-
 
 -type pop_token_ret() :: {token() | none, binary(), tokenize_state()}.
 
