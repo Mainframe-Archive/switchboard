@@ -3,16 +3,20 @@
 
 -export([start/0,
          add/2, add/3,
+         stop/2,
          key_for/3,
          where/3,
          subscribe/1,
          publish/2]).
 
+%% TODO clear this off
 -export([add_dispatch/0,
-         where_dispatch/0]).
+         where_dispatch/0,
+         dispatch/0]).
 
 -type process() :: account | active.
 -type keytype() :: account | active | {idler, imap:mailbox()}.
+
 
 %%==============================================================================
 %% External API
@@ -37,11 +41,22 @@ add(ConnSpec, Auth, Mailboxes) ->
     switchboard_sup:start_child(ConnSpec, Auth, Mailboxes).
 
 
+%% @doc stop the account from being monitored
+-spec stop(imap:connspec(), imap:auth()) ->
+    ok | {error, not_found | simple_one_for_one}.
+stop(ConnSpec, Auth) ->
+    switchboard_sup:stop_child(ConnSpec, Auth).
+
+
 %% Testing
 add_dispatch() ->
     add({ssl, <<"imap.gmail.com">>, 993},
         {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>},
         [<<"INBOX">>]).
+
+dispatch() ->
+    {{ssl, <<"imap.gmail.com">>, 993},
+     {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}}.
 
 
 %% TODO -- this will be used to generate gproc keys

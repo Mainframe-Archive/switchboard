@@ -79,11 +79,14 @@ handle_info({idle, {'*', [_, <<"EXISTS">>]}},
           end,
     % lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
-            {ok, Emails} = imap:call(Active, {uid, {fetch, {LastUid + 1, Uid}}}),
+            {ok, Emails} = imap:call(Active,
+                                     {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
             lists:foreach(
-             fun(Email) ->
-                     imapswitchboard:publish(new, {new, {ConnSpec, Auth}, Email})
-             end, Emails);
+             fun({fetch, Data}) ->
+                     imapswitchboard:publish(new, {new, {ConnSpec, Auth}, Data});
+                (_) ->
+                     ok
+             end, lists:map(fun imap:clean/1, Emails));
             % lager:info("New Emails: ~p", [Emails]);
        true -> ok
     end,

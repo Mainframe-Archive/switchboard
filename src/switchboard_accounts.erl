@@ -17,7 +17,6 @@
 -spec start_link(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailboxes) ->
-    gproc:reg(imapswitchboard:key_for(ConnSpec, Auth, account)),
     case supervisor:start_link(?MODULE, {ConnSpec, Auth, Mailboxes}) of
         {ok, Pid} ->
             %% Auth the active connection
@@ -47,6 +46,7 @@ which(Sup, Id) ->
 %%==============================================================================
 
 init({ConnSpec, Auth, Mailboxes}) ->
+    true = gproc:reg(imapswitchboard:key_for(ConnSpec, Auth, account)),
     RestartStrategy = one_for_all,
     MaxR = MaxT = 5,
     ActiveChildSpec = {active,

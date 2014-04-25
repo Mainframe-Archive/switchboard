@@ -4,7 +4,8 @@
 
 %% Interface exports
 -export([start_link/0,
-         start_child/3]).
+         start_child/3,
+         stop_child/2]).
 
 %% Callback exports
 -export([init/1]).
@@ -30,6 +31,14 @@ start_child(ConnSpec, Auth, Mailboxes) ->
     end.
 
 
+%% @doc stop the child given the provided identifiers
+-spec stop_child(imap:connspec(), imap:auth()) ->
+    ok | {error, not_found | simple_one_for_one}.
+stop_child(ConnSpec, Auth) ->
+    ChildPid = gproc:where(imapswitchboard:key_for(ConnSpec, Auth, account)),
+    supervisor:terminate_child(?MODULE, ChildPid).
+
+
 %%==============================================================================
 %% Callback exports
 %%==============================================================================
@@ -37,14 +46,10 @@ start_child(ConnSpec, Auth, Mailboxes) ->
 init(no_args) ->
     RestartStrategy = simple_one_for_one,
     MaxR = MaxT = 5,
-    OpersSpec = {switchboard_accounts,
-                 {switchboard_accounts, start_link, []},
-                 transient,
-                 infinity,
-                 supervisor,
-                 [switchboard_account_sup]},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [OpersSpec]}}.
-
-%%==============================================================================
-%% Internal functions
-%%==============================================================================
+    AccountsSpec = {switchboard_accounts,
+                    {switchboard_accounts, start_link, []},
+                    transient,
+                    infinity,
+                    supervisor,
+                    [switchboard_account_sup]},
+    {ok, {{RestartStrategy, MaxR, MaxT}, [AccountsSpec]}}.
