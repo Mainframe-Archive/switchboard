@@ -65,6 +65,7 @@
 
 %% response() is passed into the applicable commands dispatch fun
 -type response() :: {'*' | '+' | 'OK' | 'NO' | 'BAD', imap_term()}.
+-type address() :: {address, [proplist:property()]}.
 
 %% cmd() specifies a valid command that can be issued via call or cast
 -type cmd() :: {login, auth()}
@@ -514,7 +515,7 @@ clean_fetch({'*', [_Id, <<"FETCH">>, Params]}) ->
     clean_fetch(Params, []).
 
 clean_fetch([], Acc) ->
-    {fetch, Acc};
+    {fetch, lists:reverse(Acc)};
 clean_fetch([<<"UID">>, Uid | Rest], Acc) ->
     clean_fetch(Rest, [{uid, Uid} | Acc]);
 clean_fetch([<<"FLAGS">>, Flags | Rest], Acc) ->
@@ -530,21 +531,40 @@ clean_fetch([<<"ENVELOPE">>,
     %% @todo parse the date
     Envelope = [{date, Date},
                 {subject, Subject},
-                {from, clean_address(From)},
-                {sender, clean_address(Sender)},
-                {replyto, clean_address(ReplyTo)},
-                {to, clean_address(To)},
-                {cc, clean_address(Cc)},
-                {bcc, clean_address(Bcc)},
-                {inreplyto, clean_address(InReplyTo)},
+                {from, clean_addresses(From)},
+                {sender, clean_addresses(Sender)},
+                {replyto, clean_addresses(ReplyTo)},
+                {to, clean_addresses(To)},
+                {cc, clean_addresses(Cc)},
+                {bcc, clean_addresses(Bcc)},
+                {inreplyto, clean_addresses(InReplyTo)},
                 {messageid, MessageId}],
-    clean_fetch(Rest, [{envelope, Envelope} | Acc]).
+    clean_fetch(Rest, [{envelope, Envelope} | Acc]);
+clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
+    clean_fetch(Rest, [{body, Body} | Acc]).
+
 
 %% @doc clean the provided address
--spec clean_address([{string, binary()}]) ->
-    [proplist:property()].
-clean_address([{string, Name}, {string, _Adl}, {string, MailBox}, {string, Host}]) ->
-    [{name, Name}, {address, <<MailBox/binary, $@, Host/binary>>}].
+-spec clean_addresses([[{string, binary()}]]) ->
+    [address()].
+clean_addresses(nil) ->
+    [];
+clean_addresses(Addresses) ->
+    clean_addresses(Addresses, []).
+
+%% @private
+-spec clean_addresses([[{string, binary()}]], [address()]) ->
+    [address()].
+clean_addresses([], Acc) ->
+    lists:reverse(Acc);
+clean_addresses([[RawName, _, {string, MailBox}, {string, Host}] | Rest], Acc) ->
+    Address = [{email, <<MailBox/binary, $@, Host/binary>>}],
+    clean_addresses(Rest,
+                    [{address, case RawName of
+                                   nil -> Address;
+                                   {string, Name} -> [{name, Name} | Address]
+                               end} |
+                     Acc]).
 
 %%==============================================================================
 %% Response Tokenizing + Parsing
@@ -705,6 +725,75 @@ parse([Token | Rest], ParseAcc) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
+-define(FETCH, {'*',[37,<<"FETCH">>,
+                     [<<"UID">>,37,<<"BODY">>,
+                      [[{string,<<"TEXT">>},
+                        {string,<<"PLAIN">>},
+                        [{string,<<"CHARSET">>},{string,<<"utf-8">>}],
+                        nil,nil,
+                        {string,<<"QUOTED-PRINTABLE">>},
+                        87,5],
+                       [{string,<<"TEXT">>},
+                        {string,<<"HTML">>},
+                        [{string,<<"CHARSET">>},{string,<<"utf-8">>}],
+                        nil,nil,
+                        {string,<<"QUOTED-PRINTABLE">>},
+                        850,11],
+                       {string,<<"ALTERNATIVE">>}],
+                      <<"ENVELOPE">>,
+                      [{string,<<"Thu, 24 Apr 2014 22:16:08 -0700">>},
+                       {string,<<"never">>},
+                       [[{string,<<"John Doe">>},
+                         nil,
+                         {string,<<"john">>},
+                         {string,<<"gmail.com">>}]],
+                       [[{string,<<"John Doe">>},
+                         nil,
+                         {string,<<"john">>},
+                         {string,<<"gmail.com">>}]],
+                       [[{string,<<"John Doe">>},
+                         nil,
+                         {string,<<"john">>},
+                         {string,<<"gmail.com">>}]],
+                       [[nil,nil,
+                         {string,<<"dispatchonme">>},
+                         {string,<<"gmail.com">>}]],
+                       nil,nil,nil,
+                       {string,<<"<etPan.5359ef98.ded7263.112@Thomass-MacBook-Pro.local>">>}],
+                      <<"FLAGS">>,[],<<"INTERNALDATE">>,
+                      {string,<<"25-Apr-2014 05:16:11 +0000">>},
+                      <<"RFC822.SIZE">>,3856]]}).
+
+
+-define(ADDRESSES, [[{string,<<"John Doe">>},
+                     nil,
+                     {string,<<"john">>},
+                     {string,<<"gmail.com">>}],
+                    [{string,<<"Jane Doe">>},
+                     nil,
+                     {string,<<"jane">>},
+                     {string,<<"gmail.com">>}]]).
+
+%% Clean
+clean_test_() ->
+    [clean_address_assertions(),
+     clean_assertions()].
+
+clean_address_assertions() ->
+    [?_assertEqual([{address, [{name, <<"John Doe">>}, {email, <<"john@gmail.com">>}]},
+                    {address, [{name, <<"Jane Doe">>}, {email, <<"jane@gmail.com">>}]}],
+                   clean_addresses(?ADDRESSES))].
+
+clean_assertions() ->
+    [?_assertMatch({fetch, [{uid, 37},
+                            {body, _},
+                            {envelope, _},
+                            {flags, []},
+                            {internaldate, <<"25-Apr-2014 05:16:11 +0000">>},
+                            {rfc822size, 3856}]},
+                   clean(?FETCH))].
+
+
 %% Commands
 cmd_test_() ->
     [?_assertEqual([<<"UID">>, <<"FETCH">>, <<"1:9">>, <<"full">>],
@@ -780,5 +869,6 @@ decode_line_test_() ->
 decode_line_default() ->
     [?_assertEqual({[1, 2, 3], {<<>>, none}, {[], []}},
                    decode_line(<<"1 2 3\r\n">>))].
+
 
 -endif.
