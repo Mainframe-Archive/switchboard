@@ -17,11 +17,13 @@
 -spec start_link(imap:connspec(), imap:auth(), imap:mailbox()) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailbox) ->
+    Account = imap:auth_to_username(Auth),
     {ok, IdlerSup} = supervisor:start_link(?MODULE, {ConnSpec, Auth, Mailbox}),
-    ImapIdler = gproc:where(imapswitchboard:key_for(ConnSpec, Auth, {idler, Mailbox})),
+    ImapIdler = imapswitchboard:where(Account, {idler, Mailbox}),
     {ok, _} = imap:call(ImapIdler, {login, Auth}),
     {ok, _} = imap:call(ImapIdler, {select, Mailbox}),
-    DispatchFun = switchboard_operator:dispatch_fun(ConnSpec, Auth, Mailbox),
+    %% Setup the dispatch fun to forward to the operator via gproc
+    DispatchFun = switchboard_operator:dispatch_fun(Account, Mailbox),
     ok = imap:cast(ImapIdler, idle, [{dispatch, DispatchFun}]),
     {ok, IdlerSup}.
 
@@ -33,21 +35,21 @@ start_link(ConnSpec, Auth, Mailbox) ->
 init({ConnSpec, Auth, Mailbox}) ->
     RestartStrategy = one_for_one,
     MaxR = MaxT = 5,
+    Account = imap:auth_to_username(Auth),
     ImapSpec = {imap,
                 {imap, start_link,
                  [ConnSpec,
                   [{init_callback,
                            fun() ->
                                    gproc:reg_or_locate(
-                                     imapswitchboard:key_for(ConnSpec, Auth,
-                                                             {idler, Mailbox}))
+                                     imapswitchboard:key_for(Account, {idler, Mailbox}))
                            end}]]},
                 permanent,
                 5000, %% TODO switch these out with an application var
                 worker,
                 [imap]},
     OperatorSpec = {switchboard_operator,
-                    {switchboard_operator, start_link, [ConnSpec, Auth, Mailbox]},
+                    {switchboard_operator, start_link, [Account, Mailbox]},
                     permanent,
                     5000, %% TODO switch these out with an application var
                     worker,

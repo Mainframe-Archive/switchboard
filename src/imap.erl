@@ -12,7 +12,9 @@
          cast/2, cast/3,
          call/2, call/3, call/4,
          recv/0, recv/1,
-         clean/1]).
+         clean/1,
+         auth_to_username/1]).
+
 
 %% Callback exports
 -export([init/1,
@@ -46,6 +48,8 @@
 
 %% Types
 -type socket() :: ssl:sslsocket() | gen_tcp:socket().
+%% account() should be your good old <<"address@email.com">>"
+-type account() :: binary().
 %% connspec() specifies a tcp connection, see gen_tcp:connect args
 -type connspec() :: {ssl | plain, Host :: binary(), Port :: integer()} |
                     {ssl | plain, Host :: binary(),
@@ -111,7 +115,8 @@
                         | {number, binary()}
                         | {atom, binary()}.
 
--export_type([connspec/0,
+-export_type([account/0,
+              connspec/0,
               auth_plain/0,
               auth_xoauth2/0,
               auth/0,
@@ -245,7 +250,7 @@ recv(Timeout, MonitorRef, Responses) ->
             {error, lists:reverse([{'NO', Response} | Responses])};
         {'BAD', Response} ->
             {error, lists:reverse([{'BAD', Response} | Responses])};
-        {'DOWN', MonitorRef, _, Reason} ->
+        {'DOWN', MonitorRef, _, _, Reason} ->
             {error, {down, Reason, lists:reverse(Responses)}}
         after
             Timeout ->
@@ -264,6 +269,15 @@ clean({'*', [Recent, <<"RECENT">>]}) ->
     {recent, Recent};
 clean({'OK',[<<"Success">>]}) ->
     {ok, success}.
+
+
+%% @doc returns the username for the given auth
+-spec auth_to_username(auth()) ->
+    binary().
+auth_to_username({plain, Username, _}) ->
+    Username;
+auth_to_username({xoauth2, Account}) ->
+    Account.
 
 
 %%==============================================================================
@@ -306,7 +320,6 @@ handle_call(_Request, _From, State) ->
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
-    % ?LOG_DEBUG("SENDING: ~p", [cmd_to_data(Cmd)]),
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
     {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
 handle_cast(stop, State) ->

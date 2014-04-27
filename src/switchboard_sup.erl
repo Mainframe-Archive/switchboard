@@ -5,7 +5,7 @@
 %% Interface exports
 -export([start_link/0,
          start_child/3,
-         stop_child/2]).
+         stop_child/1]).
 
 %% Callback exports
 -export([init/1]).
@@ -32,10 +32,10 @@ start_child(ConnSpec, Auth, Mailboxes) ->
 
 
 %% @doc stop the child given the provided identifiers
--spec stop_child(imap:connspec(), imap:auth()) ->
+-spec stop_child(binary()) ->
     ok | {error, not_found | simple_one_for_one}.
-stop_child(ConnSpec, Auth) ->
-    ChildPid = gproc:where(imapswitchboard:key_for(ConnSpec, Auth, account)),
+stop_child(Account) ->
+    ChildPid = imapswitchboard:where(Account, account),
     supervisor:terminate_child(?MODULE, ChildPid).
 
 
