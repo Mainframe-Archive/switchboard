@@ -26,15 +26,25 @@
 %% Interface exports
 %%==============================================================================
 
-%% @doc Start the switchboard_operator supervisor as part of the supervision tree.
+%% @doc Start the switchboard_operator as part of the supervision tree.
 -spec start_link(imap:account(), imap:mailbox()) ->
     supervisor:startlink_ret().
 start_link(Account, Mailbox) ->
     gen_server:start_link(?MODULE, {Account, Mailbox}, []).
 
 
-stop(Pid) ->
-    gen_server:cast(Pid, stop).
+%% @doc Stop the switchboard_operator.
+-spec stop(pid()) ->
+    ok.
+stop(Oper) ->
+    gen_server:cast(Oper, stop).
+
+
+%% @doc Non-blocking command for the operator to update its LastUid.
+-spec update_uid(pid()) ->
+    ok.
+update_uid(Oper) ->
+    gen_server:cast(Oper, {uid, update}).
 
 
 %% @doc Returns the dispatch function that will send the idle results to the proper key.
@@ -48,21 +58,13 @@ dispatch_fun(Account, Mailbox) ->
     end.
 
 
-%% @doc Non-blocking command for the operator to update its LastUid.
--spec update_uid(pid()) ->
-    ok.
-update_uid(Oper) ->
-    gen_server:cast(Oper, {uid, update}).
-
-
-
 %%==============================================================================
 %% Callback exports
 %%==============================================================================
 
 init({Account, Mailbox}) ->
     true = gproc:reg(pubsub_key(Account, Mailbox)),
-    true = gproc:reg(imapswitchboard:key_for(Account, operator)),
+    true = gproc:reg(imapswitchboard:key_for(Account, {operator, Mailbox})),
     {ok, #state{account=Account, mailbox=Mailbox}}.
 
 handle_call(_Request, _From, State) ->
@@ -139,6 +141,10 @@ current_uid(Account, Mailbox) ->
 pubsub_key(Account, Mailbox) ->
     {p, l, {idler, Account, Mailbox}}.
 
+
+%%==============================================================================
+%% Eunit.
+%%==============================================================================
 
 -define(TEST, true).
 

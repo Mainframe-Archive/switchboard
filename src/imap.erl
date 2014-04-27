@@ -127,7 +127,7 @@
 %% imap gen_server state
 -record(state, {socket :: socket(),
                 connspec :: connspec(),
-                auth = none :: none | auth(),
+                opts = [] :: [proplist:property()],
                 tag = 0 :: integer(),
                 tokenize_state = {<<>>, none} :: {binary(), tokenize_state()},
                 parse_state = {[], []} :: {[token()], [imap_term()]},
@@ -293,17 +293,22 @@ init({{SocketType, Host, Port, SocketOpts}, Opts}) ->
     init({{SocketType, Host, Port, SocketOpts, 5000}, Opts});
 init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
     %% This lil bit of overengineering is so I can use gproc to reg the process
-    case proplists:get_value(init_callback, Opts) of
+    State = case proplists:get_value(init_callback, Opts) of
         undefined ->
-            undefined;
+            #state{connspec=ConnSpec, opts=Opts};
         Callback ->
-            Callback()
+            Callback(#state{connspec=ConnSpec, opts=Opts})
     end,
     SocketOptDefaults = [binary],
     case SocketType:connect(binary_to_list(Host), Port, SocketOpts ++ SocketOptDefaults,
                             Timeout) of
         {ok, Socket} ->
-            {ok, #state{socket=Socket, connspec=ConnSpec}};
+            case proplists:get_value(post_init_callback, Opts) of
+                undefined ->
+                    {ok, State#state{socket=Socket}};
+                _ ->
+                    {ok, State#state{socket=Socket}, 0}
+            end;
         {error, ssl_not_started} ->
             %% If ssl app isn't started, attempt to restart and then retry init
             start_app(ssl),
@@ -337,6 +342,12 @@ handle_info({ssl, Socket, Data},
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
     ?LOG_DEBUG("Socket Closed: ~p", [self()]),
     {stop, normal, State};
+
+%% immediate timeout after init -> post_init_callback
+handle_info(timeout, #state{opts=Opts} = State) ->
+    Fun = proplists:get_value(post_init_callback, Opts),
+    {noreply, Fun(State)};
+
 handle_info(Info, State) ->
     ?LOG_WARNING(handle_info, "unexpected: ~p", [Info]),
     {noreply, State}.

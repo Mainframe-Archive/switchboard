@@ -3,11 +3,11 @@
 -behaviour(supervisor).
 
 %% Interface exports.
--export([start_link/3,
-         which/2]).
+-export([start_link/3]).
 
 %% Callback exports.
 -export([init/1]).
+
 
 %%==============================================================================
 %% Interface exports
@@ -17,31 +17,7 @@
 -spec start_link(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailboxes) ->
-    case supervisor:start_link(?MODULE, {ConnSpec, Auth, Mailboxes}) of
-        {ok, Pid} ->
-            %% Auth the active connection.
-            {ok, Active} = which(Pid, active),
-            {ok, _} = imap:call(Active, {login, Auth}),
-            %% The Operator can now update its PID.
-            Oper = imapswitchboard:where(imap:auth_to_username(Auth), operator),
-            ok = switchboard_operator:update_uid(Oper),
-            {ok, Pid};
-        {error, Reason} ->
-            {error, Reason}
-    end.
-
-
-%% @doc Get the child with the given Id.
--spec which(supervisor:sup(), supervisor:child_id()) ->
-    supervisor:child().
-which(Sup, Id) ->
-    case [C || {I, C, _, _} <- supervisor:which_children(Sup), I =:= Id] of
-        [Child] ->
-            {ok, Child};
-        [] ->
-            {error, undefined}
-    end.
-
+    supervisor:start_link(?MODULE, {ConnSpec, Auth, Mailboxes}).
 
 
 %%==============================================================================
@@ -57,10 +33,8 @@ init({ConnSpec, Auth, Mailboxes}) ->
                        {imap, start_link,
                         [ConnSpec,
                          [{init_callback,
-                           fun() ->
-                                   gproc:reg_or_locate(
-                                     imapswitchboard:key_for(Account, active))
-                           end}]]},
+                           imapswitchboard:register_callback(Account, active)},
+                         {post_init_callback, spawn_login(Auth)}]]},
                        permanent,
                        5000,
                        worker,
@@ -78,3 +52,59 @@ init({ConnSpec, Auth, Mailboxes}) ->
 %%==============================================================================
 %% Internal functions
 %%==============================================================================
+
+%% @doc PostInitCallback function to login in.
+-spec spawn_login(imap:auth()) ->
+    fun((State) -> State) when State :: any().
+spawn_login(Auth) ->
+    fun(State) ->
+            Imap = self(),
+            spawn_link(fun() -> {ok, _} = imap:call(Imap, {login, Auth}) end),
+            %% The Operator can now update its PID.
+            {Oper, _} = gproc:await(imapswitchboard:key_for(imap:auth_to_username(Auth),
+                                                            operator)),
+            ok = switchboard_operator:update_uid(Oper),
+            State
+    end.
+
+
+%%==============================================================================
+%% Eunit.
+%%==============================================================================
+
+-define(TEST, true).
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+accounts_test_() ->
+    {foreach,
+     fun accounts_setup/0,
+     fun accounts_teardown/1,
+     [fun accounts_reg_asserts/1]}.
+
+-spec accounts_setup() ->
+    {{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}.
+accounts_setup() ->
+    {ConnSpec, Auth} = imapswitchboard:dispatch(),
+    Mailboxes = [<<"INBOX">>],
+    {ok, Pid} = start_link(ConnSpec, Auth, Mailboxes),
+    {{ConnSpec, Auth}, Mailboxes, Pid}.
+    
+-spec accounts_teardown({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
+    ok.
+accounts_teardown({_, _, Pid}) ->
+    true = exit(Pid, normal),
+    ok.
+
+%% @hidden assert that the the processes have registered
+-spec accounts_reg_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
+    [any()].
+accounts_reg_asserts({{_ConnSpec, Auth}, Mailboxes, _}) ->
+    Account = imap:auth_to_username(Auth),
+    [[?_assert(is_pid(imapswitchboard:where(Account, {Type, Mailbox})))
+      || Type <- [idler, operator], Mailbox <- Mailboxes],
+     [?_assert(is_pid(imapswitchboard:where(Account, Type)))
+      || Type <- [active, account]]].
+
+-endif.

@@ -5,13 +5,14 @@
          add/2, add/3,
          stop/1,
          key_for/2,
+         register_callback/2,
          where/2,
          which/0,
          subscribe/1,
          unsubscribe/1,
          publish/2]).
 
-%% @todo
+
 -define(TEST, true).
 
 -ifdef(TEST).
@@ -58,10 +59,20 @@ stop(Account) ->
 
 %% @doc returns the key for the given Username and Type
 -spec key_for(Account, Type) ->
-    {n, l, {imapswitchboard, {Type, Account}}} when Account :: any(),
+    {n, l, {imapswitchboard, {Type, Account}}} when Account :: imap:account(),
                                                     Type :: keytype().
 key_for(Account, Type) ->
     {n, l, {imapswitchboard, {Type, Account}}}.
+
+
+%% @doc An imap InitCallback fun to register the process with gproc.
+-spec register_callback(imap:account(), keytype()) ->
+    fun((State) -> State) when State :: any().
+register_callback(Account, Type) ->
+    fun(State) ->
+            true = gproc:reg(imapswitchboard:key_for(Account, Type)),
+            State
+    end.
 
 
 %% @doc returns the process registered with the given properties
@@ -130,7 +141,6 @@ start_app(App) ->
 
 
 -ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
 
 -define(DISPATCH, <<"dispatchonme@gmail.com">>).
 -define(DISPATCH_MAILBOX, <<"INBOX">>).
