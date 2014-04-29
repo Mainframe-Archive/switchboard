@@ -34,7 +34,7 @@ init({ConnSpec, Auth, Mailboxes}) ->
                         [ConnSpec,
                          [{init_callback,
                            imapswitchboard:register_callback(Account, active)},
-                         {post_init_callback, spawn_login(Auth)}]]},
+                         {post_init_callback, login(Auth)}]]},
                        permanent,
                        5000,
                        worker,
@@ -54,12 +54,11 @@ init({ConnSpec, Auth, Mailboxes}) ->
 %%==============================================================================
 
 %% @doc PostInitCallback function to login in.
--spec spawn_login(imap:auth()) ->
+-spec login(imap:auth()) ->
     fun((State) -> State) when State :: any().
-spawn_login(Auth) ->
+login(Auth) ->
     fun(State) ->
-            Imap = self(),
-            spawn_link(fun() -> {ok, _} = imap:call(Imap, {login, Auth}) end),
+            {ok, _} = imap:call(self, {login, Auth}),
             %% The Operator can now update its PID.
             {Oper, _} = gproc:await(imapswitchboard:key_for(imap:auth_to_username(Auth),
                                                             operator)),
@@ -90,7 +89,7 @@ accounts_setup() ->
     Mailboxes = [<<"INBOX">>],
     {ok, Pid} = start_link(ConnSpec, Auth, Mailboxes),
     {{ConnSpec, Auth}, Mailboxes, Pid}.
-    
+
 -spec accounts_teardown({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
     ok.
 accounts_teardown({_, _, Pid}) ->

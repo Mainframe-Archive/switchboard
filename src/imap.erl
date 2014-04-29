@@ -2,6 +2,12 @@
 %% http://tools.ietf.org/html/rfc3501
 %% In the API, binaries are used for string-like data.
 
+%% To allow the imap connection to be properly setup before usage, there
+%% are some lifecycle hooks:
+%% a cmds opt specifies a list of commands which are executed in order
+%% in a separately spawned thread
+%% the post_init_callback opt is a function that is run once all cmds have been completed
+
 -module(imap).
 -behaviour(gen_server).
 
@@ -138,7 +144,8 @@
 %% Interface exports
 %%==============================================================================
 
--ifdef(DEBUG).
+%% @TODO work into test lib
+-ifdef(TEST).
 -export([start_dispatch/0, parse/1]).
 start_dispatch() ->
     {ok, Child} = start({ssl, <<"imap.gmail.com">>, 993}),
@@ -293,21 +300,28 @@ init({{SocketType, Host, Port, SocketOpts}, Opts}) ->
     init({{SocketType, Host, Port, SocketOpts, 5000}, Opts});
 init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
     %% This lil bit of overengineering is so I can use gproc to reg the process
-    State = case proplists:get_value(init_callback, Opts) of
+    case proplists:get_value(cmds, Opts) of
         undefined ->
-            #state{connspec=ConnSpec, opts=Opts};
+            cmds_complete(self());
+        Cmds ->
+            cmds_call(self(), Cmds)
+    end,
+    InitCallback = case proplists:get_value(init_callback, Opts) of
+        undefined ->
+            fun(X) -> X end;
         Callback ->
-            Callback(#state{connspec=ConnSpec, opts=Opts})
+            Callback
     end,
     SocketOptDefaults = [binary],
     case SocketType:connect(binary_to_list(Host), Port, SocketOpts ++ SocketOptDefaults,
                             Timeout) of
         {ok, Socket} ->
+            State = InitCallback(#state{connspec=ConnSpec, opts=Opts, socket=Socket}),
             case proplists:get_value(post_init_callback, Opts) of
                 undefined ->
-                    {ok, State#state{socket=Socket}};
+                    {ok, State};
                 _ ->
-                    {ok, State#state{socket=Socket}, 0}
+                    {ok, State, 0}
             end;
         {error, ssl_not_started} ->
             %% If ssl app isn't started, attempt to restart and then retry init
@@ -324,9 +338,19 @@ handle_call(_Request, _From, State) ->
 %% @doc handle asynchronous casts
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
+    ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
     {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
+%% Called once all inital commands have been completed
+handle_cast({lifecycle, {cmds, complete}}, #state{opts=Opts} = State) ->
+    ?LOG_DEBUG("cmds complete", []),
+    case proplists:get_value(post_init_callback, Opts) of
+        undefined ->
+            {noreply, State};
+        Fun ->
+            {noreply, Fun(State)}
+    end;
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast(_Request, State) ->
@@ -342,12 +366,6 @@ handle_info({ssl, Socket, Data},
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
     ?LOG_DEBUG("Socket Closed: ~p", [self()]),
     {stop, normal, State};
-
-%% immediate timeout after init -> post_init_callback
-handle_info(timeout, #state{opts=Opts} = State) ->
-    Fun = proplists:get_value(post_init_callback, Opts),
-    {noreply, Fun(State)};
-
 handle_info(Info, State) ->
     ?LOG_WARNING(handle_info, "unexpected: ~p", [Info]),
     {noreply, State}.
@@ -361,13 +379,38 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
     ?LOG_WARNING(terminate, "TERMINATING ~p", [Reason]),
     SocketType:close(Socket);
+terminate(normal, _State) ->
+    ok;
 terminate(Reason, _State) ->
-    ?LOG_DEBUG("~p", [Reason]).
+    ?LOG_WARNING(terminate, "IMAP Terminating due to ~p", [Reason]).
 
 
 %%==============================================================================
 %% Internal functions
 %%==============================================================================
+
+%% @doc this function casts a lifecycle cmds completion msg to the Imap server
+-spec cmds_complete(pid()) ->
+    ok.
+cmds_complete(Imap) ->
+    ?LOG_DEBUG("cmds_complete call fo ~p", [Imap]),
+    gen_server:cast(Imap, {lifecycle, {cmds, complete}}).
+
+
+%% @doc call the list of commands in a separate process. used in startup
+-spec cmds_call(pid(), [cmd()]) ->
+    pid().
+cmds_call(Imap, Cmds) ->
+    spawn_link(fun() ->
+                       lists:foreach(
+                         fun({cmd, Cmd, Opts}) ->
+                                 {ok, _} = imap:call(Imap, Cmd, Opts);
+                            ({cmd, Cmd}) ->
+                                 {ok, _} = imap:call(Imap, Cmd)
+                         end, Cmds),
+                       cmds_complete(Imap)
+               end).
+
 
 %% @doc returns a dispatch function for sending messages to the provided pid
 -spec dispatch_to_ref(pid() | port() | atom()) ->
@@ -885,7 +928,7 @@ parse_lists() ->
                    parse([1, '(', 2, <<"c">>, ')', 4, crlf]))].
 
 
-%% decode_line testing
+%% decode_line testing.
 decode_line_test_() ->
     [decode_line_default()].
 
@@ -894,5 +937,68 @@ decode_line_default() ->
     [?_assertEqual({[1, 2, 3], {<<>>, none}, {[], []}},
                    decode_line(<<"1 2 3\r\n">>))].
 
+
+%% The live tests use an IMAP connection to dispatchonme@gmail.com
+-define(LIVE_TEST, true).
+-ifdef(LIVE_TEST).
+
+-type dispatch_test_spec() :: {{connspec(), auth()}, pid()}.
+
+dispatch_test_() ->
+    {foreach,
+     fun dispatch_setup/0,
+     fun dispatch_teardown/1,
+     [fun dispatch_select_assertions/1]}.
+
+
+-spec dispatch_setup() ->
+    dispatch_test_spec().
+dispatch_setup() ->
+    {ConnSpec, Auth} = imapswitchboard:dispatch(),
+    TestPid = self(),
+    {ok, Imap} = start_link(ConnSpec,
+                            [{cmds, [{cmd, {login, Auth}}]},
+                             {post_init_callback,
+                                fun(State) ->
+                                        TestPid ! {imap, ready},
+                                        State
+                                end}]),
+    ok = receive {imap, ready} -> ok after 5000 -> timeout end,
+    {{ConnSpec, Auth}, Imap}.
+
+
+-spec dispatch_teardown(dispatch_test_spec()) ->
+    ok.
+dispatch_teardown({_, Imap}) ->
+    stop(Imap).
+
+
+%% @doc kill this?
+% -spec init_callback_blocker(fun((pid(), #state{}) -> any())) -> ok.
+% init_callback_reg(Callback, Key) ->
+%     fun(State) ->
+%             Imap = self(),
+%             Caller = spawn_monitor(
+%                        fun() ->
+%                                State1 = Callback(Imap, State),
+%                                lager:info("Sending msg: ~p",
+%                                           [{complete, {callback, self()}, State1}]),
+%                                Imap ! {complete, {callback, self()}, State1}
+%                        end),
+%             receive
+%                 {complete, {callback, Caller}, State1} ->
+%                     State1
+%             after
+%                 10000 ->
+%                     throw(init_callback_timeout)
+%             end
+%     end.
+
+
+dispatch_select_assertions({_, Imap}) ->
+    [?_assertMatch({ok, _}, call(Imap, {select, <<"INBOX">>}))].
+
+
+-endif.
 
 -endif.

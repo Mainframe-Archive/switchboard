@@ -31,9 +31,9 @@ init({ConnSpec, Auth, Mailbox}) ->
     ImapSpec = {imap,
                 {imap, start_link,
                  [ConnSpec,
-                  [{init_callback, 
-                    imapswitchboard:register_callback(Account, {idler, Mailbox})},
-                  {post_init_callback, spawn_login_idle(Auth, Mailbox)}]]},
+                  [{cmds, [{cmd, {login, Auth}}]},
+                   {post_init_callback,
+                    imapswitchboard:register_callback(Account, {idler, Mailbox})}]]},
                 permanent,
                 5000, %% TODO switch these out with an application var
                 worker,
@@ -52,19 +52,29 @@ init({ConnSpec, Auth, Mailbox}) ->
 %%==============================================================================
 
 %% @doc PostInitCallback function to login+idle on the given mailbox.
-spawn_login_idle(Auth, Mailbox) ->
+login_idle(Auth, Mailbox) ->
     fun(State) ->
+            process_flag(trap_exit, true),
+            lager:info("Issuing login cmds for: ~p [~p]", [Auth, self()]),
             Imap = self(),
             spawn_link(
               fun() ->
                       {ok, _} = imap:call(Imap, {login, Auth}),
                       {ok, _} = imap:call(Imap, {select, Mailbox}),
                       %% Setup the dispatch fun to forward to the oper via gproc
-                      DispatchFun = switchboard_operator:dispatch_fun(
-                                      imap:auth_to_username(Auth), Mailbox),
-                      ok = imap:cast(Imap, idle, [{dispatch, DispatchFun}])
+                      Account = imap:auth_to_username(Auth),
+                      DispatchFun = switchboard_operator:dispatch_fun(Account, Mailbox),
+                      ok = imap:cast(Imap, idle, [{dispatch, DispatchFun}]),
+                      imapswitchboard:register_callback(Account, {idler, Mailbox})
               end),
-            State
+            receive
+                {'EXIT', _} ->
+                    process_flag(trap_exit, false),
+                    State
+            after
+                10000 ->
+                    throw(nologin)
+            end
     end.
 
 
@@ -102,7 +112,7 @@ idler_teardown({_, _, Pid}) ->
     [any()].
 reg_asserts({{_ConnSpec, Auth}, Mailbox, _}) ->
     Account = imap:auth_to_username(Auth),
-    [?_assert(is_pid(imapswitchboard:where(Account, {Type, Mailbox})))
+    [?_assertMatch({Pid, _} when is_pid(Pid), gproc:await(imapswitchboard:key_for(Account, {Type, Mailbox})))
      || Type <- [idler, operator]].
 
 -endif.

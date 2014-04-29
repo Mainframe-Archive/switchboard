@@ -65,7 +65,7 @@ key_for(Account, Type) ->
     {n, l, {imapswitchboard, {Type, Account}}}.
 
 
-%% @doc An imap InitCallback fun to register the process with gproc.
+%% @doc An imap InitCallback fun to register the process its called on  with gproc.
 -spec register_callback(imap:account(), keytype()) ->
     fun((State) -> State) when State :: any().
 register_callback(Account, Type) ->
@@ -167,7 +167,8 @@ interface_test_() ->
       fun() -> add_dispatch(), ?DISPATCH end,
       fun(Account) -> ok = stop(Account) end,
       [fun where_assertions/1,
-       fun which_assertions/1]}].
+       fun which_assertions/1,
+       fun query_assertions/1]}].
 
 %% @private
 add_stop_assertions() ->
@@ -193,5 +194,10 @@ where_assertions(Account) ->
 %% @private
 which_assertions(Account) ->
     [?_assertEqual(which(), [Account])].
+
+%% @private test that the imap server can be queried
+query_assertions(Account) ->
+    Imap = where(Account, active),
+    [?_assertMatch({ok, _}, imap:call(Imap, {select, <<"INBOX">>}))].
 
 -endif.

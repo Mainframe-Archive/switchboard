@@ -51,6 +51,7 @@ update_uid(Oper) ->
 -spec dispatch_fun(imap:account(), imap:mailbox()) ->
     fun((imap:response()) -> ok).
 dispatch_fun(Account, Mailbox) ->
+    lager:info("Dispatch fun being called for ~p", [Account]),
     Key = pubsub_key(Account, Mailbox),
     fun(Msg) ->
             gproc:send(Key, {idle, Msg}),
@@ -78,6 +79,9 @@ handle_cast(_Request, State) ->
     {noreply, State}.
 
 
+handle_info(timeout, State) ->
+    ok = update_uid(self()),
+    {noreply, State};
 handle_info({idle, {'*', [_, <<"EXISTS">>]}}, State) ->
     {noreply, update_uid_internal(State)};
 handle_info({idle, {'+', [<<"idling">>]}}, State) ->
@@ -99,10 +103,10 @@ terminate(_Reason, _State) ->
 
 
 %%==============================================================================
-%% Internal functions
+%% Internal functions.
 %%==============================================================================
 
-%% @doc updates the State's uid, publishing messages as necessary
+%% @doc Updates the State's uid, publishing messages as necessary.
 -spec update_uid_internal(#state{}) ->
     #state{}.
 update_uid_internal(#state{account=Account,
@@ -125,7 +129,7 @@ update_uid_internal(#state{account=Account,
     State#state{last_uid=Uid}.
 
 
-%% @doc returns the current max uid for the given Account and Mailbox
+%% @doc Returns the current max uid for the given Account and Mailbox.
 -spec current_uid(binary(), imap:mailbox()) ->
     {ok, integer()}.
 current_uid(Account, Mailbox) ->
