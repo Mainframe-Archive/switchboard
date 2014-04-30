@@ -145,6 +145,7 @@
 %%==============================================================================
 
 %% @TODO work into test lib
+-define(TEST, true).
 -ifdef(TEST).
 -export([start_dispatch/0, parse/1]).
 start_dispatch() ->
@@ -360,11 +361,11 @@ handle_cast(_Request, State) ->
 %% @doc handle messages
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
-    %% ?LOG_DEBUG("Received: ~p", [Data]),
+    ?LOG_DEBUG("Received: ~p", [Data]),
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
-    ?LOG_WARNING(handle_info, "Socket Closed: ~p", [self()]),
+    % ?LOG_WARNING(handle_info, "Socket Closed: ~p", [self()]),
     {stop, normal, State};
 handle_info(Info, State) ->
     ?LOG_WARNING(handle_info, "unexpected: ~p", [Info]),
@@ -393,7 +394,6 @@ terminate(Reason, _State) ->
 -spec cmds_complete(pid()) ->
     ok.
 cmds_complete(Imap) ->
-    ?LOG_DEBUG("cmds_complete call fo ~p", [Imap]),
     gen_server:cast(Imap, {lifecycle, {cmds, complete}}).
 
 
@@ -791,7 +791,6 @@ parse([Token | Rest], ParseAcc) ->
 %% Tests
 %%==============================================================================
 
--define(TEST, true).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").

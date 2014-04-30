@@ -79,7 +79,7 @@ idler_teardown({_, _, Pid}) ->
     true = exit(Pid, normal),
     ok.
 
-%% @hidden assert that the the processes have registered
+%% @hidden Assert that the the processes have registered.
 -spec reg_asserts({{imap:connspec(), imap:auth()}, imap:mailbox(), pid()}) ->
     [any()].
 reg_asserts({{_ConnSpec, Auth}, Mailbox, _}) ->

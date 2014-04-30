@@ -6,7 +6,8 @@
 -export([start_link/2,
          stop/1,
          dispatch_fun/2,
-         update_uid/1]).
+         update_uid/1,
+         get_last_uid/1]).
 
 %% Callback exports
 -export([init/1,
@@ -47,12 +48,20 @@ update_uid(Oper) ->
     gen_server:cast(Oper, {uid, update}).
 
 
+%% @doc Blocking command to get the Operator's LastUid.
+-spec get_last_uid(pid()) ->
+    integer().
+get_last_uid(Oper) ->
+    gen_server:call(Oper, {get, last_uid}).
+
+
 %% @doc Returns the dispatch function that will send the idle results to the proper key.
 -spec dispatch_fun(imap:account(), imap:mailbox()) ->
     fun((imap:response()) -> ok).
 dispatch_fun(Account, Mailbox) ->
     Key = pubsub_key(Account, Mailbox),
     fun(Msg) ->
+            lager:info("Dispatching ~p, [~p]", [{Account, Mailbox}, Msg]),
             gproc:send(Key, {idle, Msg}),
             ok
     end.
@@ -65,8 +74,10 @@ dispatch_fun(Account, Mailbox) ->
 init({Account, Mailbox}) ->
     true = gproc:reg(pubsub_key(Account, Mailbox)),
     true = gproc:reg(imapswitchboard:key_for(Account, {operator, Mailbox})),
-    {ok, #state{account=Account, mailbox=Mailbox}}.
+    {ok, #state{account=Account, mailbox=Mailbox}, 0}.
 
+handle_call({get, last_uid}, _From, #state{last_uid=LastUid} = State) ->
+    {reply, LastUid, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
@@ -112,7 +123,7 @@ update_uid_internal(#state{account=Account,
                            mailbox=Mailbox,
                            last_uid=LastUid} = State) ->
     {ok, Uid} = current_uid(Account, Mailbox),
-    % lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
+    lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
             {ok, Emails} = imap:call(imapswitchboard:where(Account, active),
                                      {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
@@ -132,7 +143,7 @@ update_uid_internal(#state{account=Account,
 -spec current_uid(binary(), imap:mailbox()) ->
     {ok, integer()}.
 current_uid(Account, Mailbox) ->
-    Active = imapswitchboard:where(Account, active),
+    {Active, _} = gproc:await(imapswitchboard:key_for(Account, active), 5000),
     {ok, _} = imap:call(Active, {select, Mailbox}),
     {ok, [{'*', [BinUid, <<"FETCH">>, [<<"UID">>, BinUid]]},
           {'OK', [<<"Success">>]}]} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
