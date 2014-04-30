@@ -26,7 +26,7 @@ start_link(ConnSpec, Auth, Mailboxes) ->
 
 init({ConnSpec, Auth, Mailboxes}) ->
     Account = imap:auth_to_username(Auth),
-    true = gproc:reg(imapswitchboard:key_for(Account, account)),
+    true = gproc:reg(switchboard:key_for(Account, account)),
     RestartStrategy = one_for_all,
     MaxR = MaxT = 5,
     ActiveChildSpec = {active,
@@ -34,7 +34,7 @@ init({ConnSpec, Auth, Mailboxes}) ->
                         [ConnSpec,
                          [{cmds, [{cmd, {call, {login, Auth}}}]},
                           {post_init_callback,
-                           imapswitchboard:register_callback(Account, active)}]]},
+                           switchboard:register_callback(Account, active)}]]},
                        permanent,
                        5000,
                        worker,
@@ -70,7 +70,7 @@ accounts_test_() ->
 -spec accounts_setup() ->
     {{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}.
 accounts_setup() ->
-    {ConnSpec, Auth} = imapswitchboard:dispatch(),
+    {ConnSpec, Auth} = switchboard:dispatch(),
     Mailboxes = [<<"INBOX">>],
     {ok, Pid} = start_link(ConnSpec, Auth, Mailboxes),
     {{ConnSpec, Auth}, Mailboxes, Pid}.
@@ -88,17 +88,17 @@ accounts_teardown({_, _, Pid}) ->
 accounts_reg_asserts({{_ConnSpec, Auth}, Mailboxes, _}) ->
     Account = imap:auth_to_username(Auth),
     [[?_assertMatch({Pid, _} when is_pid(Pid),
-                    gproc:await(imapswitchboard:key_for(Account, {Type, Mailbox})))
+                    gproc:await(switchboard:key_for(Account, {Type, Mailbox})))
       || Type <- [idler, operator], Mailbox <- Mailboxes],
      [?_assertMatch({Pid, _} when is_pid(Pid),
-                    gproc:await(imapswitchboard:key_for(Account, Type)))
+                    gproc:await(switchboard:key_for(Account, Type)))
       || Type <- [active, account]]].
 
 -spec active_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
     [any()].
 active_asserts({{_, Auth}, [Mailbox | _], _}) ->
     Account = imap:auth_to_username(Auth),
-    {Active, _} = gproc:await(imapswitchboard:key_for(Account, active)),
+    {Active, _} = gproc:await(switchboard:key_for(Account, active)),
     [?_assertMatch({ok, _}, imap:call(Active, {select, Mailbox})),
      ?_assertMatch({ok, _}, imap:call(Active, {fetch, 1, [<<"UID">>]}))].
 
@@ -108,7 +108,7 @@ active_asserts({{_, Auth}, [Mailbox | _], _}) ->
 operator_asserts({{_Connspec, Auth}, Mailboxes, _}) ->
     Account = imap:auth_to_username(Auth),
     lists:map(fun(Mailbox) ->
-                      Operator = imapswitchboard:where(Account, {operator, Mailbox}),
+                      Operator = switchboard:where(Account, {operator, Mailbox}),
                       ?_assert(is_integer(switchboard_operator:get_last_uid(Operator)))
               end, Mailboxes).
 

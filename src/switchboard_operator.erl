@@ -73,7 +73,7 @@ dispatch_fun(Account, Mailbox) ->
 
 init({Account, Mailbox}) ->
     true = gproc:reg(pubsub_key(Account, Mailbox)),
-    true = gproc:reg(imapswitchboard:key_for(Account, {operator, Mailbox})),
+    true = gproc:reg(switchboard:key_for(Account, {operator, Mailbox})),
     {ok, #state{account=Account, mailbox=Mailbox}, 0}.
 
 handle_call({get, last_uid}, _From, #state{last_uid=LastUid} = State) ->
@@ -125,11 +125,11 @@ update_uid_internal(#state{account=Account,
     {ok, Uid} = current_uid(Account, Mailbox),
     lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
-            {ok, Emails} = imap:call(imapswitchboard:where(Account, active),
+            {ok, Emails} = imap:call(switchboard:where(Account, active),
                                      {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
             lists:foreach(
              fun({fetch, Data}) ->
-                     imapswitchboard:publish(new, {new, {Account, Mailbox}, Data});
+                     switchboard:publish(new, {new, {Account, Mailbox}, Data});
                 (_) ->
                      ok
              end, lists:map(fun imap:clean/1, Emails));
@@ -143,7 +143,7 @@ update_uid_internal(#state{account=Account,
 -spec current_uid(binary(), imap:mailbox()) ->
     {ok, integer()}.
 current_uid(Account, Mailbox) ->
-    {Active, _} = gproc:await(imapswitchboard:key_for(Account, active), 5000),
+    {Active, _} = gproc:await(switchboard:key_for(Account, active), 5000),
     {ok, _} = imap:call(Active, {select, Mailbox}),
     {ok, [{'*', [BinUid, <<"FETCH">>, [<<"UID">>, BinUid]]},
           {'OK', [<<"Success">>]}]} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
@@ -168,7 +168,7 @@ pubsub_key(Account, Mailbox) ->
 swichboard_operator_test_() ->
     [{foreach,
       fun() -> case lists:member(<<"dispatchonme@gmail.com">>,
-                                 imapswitchboard:which()) of
+                                 switchboard:which()) of
                    true  -> [{<<"dispatchonme@gmail.com">>, <<"INBOX">>}];
                    false -> []
                end

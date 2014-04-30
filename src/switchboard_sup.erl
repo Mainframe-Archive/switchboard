@@ -1,4 +1,4 @@
-%% @doc Top level supervisor for the imapswitchboard application
+%% @doc Top level supervisor for the switchboard application
 -module(switchboard_sup).
 -behaviour(supervisor).
 
@@ -35,7 +35,7 @@ start_child(ConnSpec, Auth, Mailboxes) ->
 -spec stop_child(binary()) ->
     ok | {error, not_found | simple_one_for_one}.
 stop_child(Account) ->
-    ChildPid = imapswitchboard:where(Account, account),
+    ChildPid = switchboard:where(Account, account),
     supervisor:terminate_child(?MODULE, ChildPid).
 
 

@@ -957,7 +957,7 @@ dispatch_test_() ->
 -spec dispatch_setup() ->
     dispatch_test_spec().
 dispatch_setup() ->
-    {ConnSpec, Auth} = imapswitchboard:dispatch(),
+    {ConnSpec, Auth} = switchboard:dispatch(),
     TestPid = self(),
     {ok, Imap} = start_link(ConnSpec,
                             [{cmds, [{cmd, {call, {login, Auth}}}]},

@@ -36,7 +36,7 @@ init({ConnSpec, Auth, Mailbox}) ->
                            {cmd, {call, {select, <<"INBOX">>}}},
                            {cmd, {cast, idle}, [{dispatch, DispatchFun}]}]},
                    {post_init_callback,
-                    imapswitchboard:register_callback(Account, {idler, Mailbox})}]]},
+                    switchboard:register_callback(Account, {idler, Mailbox})}]]},
                 permanent,
                 5000, %% TODO switch these out with an application var
                 worker,
@@ -48,44 +48,3 @@ init({ConnSpec, Auth, Mailbox}) ->
                     worker,
                     [imap]},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ImapSpec, OperatorSpec]}}.
-
-
-%%==============================================================================
-%% Eunit.
-%%==============================================================================
-
--define(TEST, true).
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
-idler_test_() ->
-    {foreach,
-     fun idler_setup/0,
-     fun idler_teardown/1,
-     [fun reg_asserts/1]}.
-
--spec idler_setup() ->
-    {{imap:connspec(), imap:auth()}, imap:mailbox(), pid()}.
-idler_setup() ->
-    {ConnSpec, Auth} = imapswitchboard:dispatch(),
-    Mailbox = <<"INBOX">>,
-    {ok, Pid} = start_link(ConnSpec, Auth, Mailbox),
-    {{ConnSpec, Auth}, Mailbox, Pid}.
-
--spec idler_teardown({{imap:connspec(), imap:auth()}, imap:mailbox(), pid()}) ->
-    ok.
-idler_teardown({_, _, Pid}) ->
-    true = exit(Pid, normal),
-    ok.
-
-%% @hidden Assert that the the processes have registered.
--spec reg_asserts({{imap:connspec(), imap:auth()}, imap:mailbox(), pid()}) ->
-    [any()].
-reg_asserts({{_ConnSpec, Auth}, Mailbox, _}) ->
-    Account = imap:auth_to_username(Auth),
-    [?_assertMatch({Pid, _} when is_pid(Pid),
-                   gproc:await(imapswitchboard:key_for(Account, {Type, Mailbox})))
-     || Type <- [idler, operator]].
-
--endif.

@@ -1,4 +1,4 @@
-# imapswitchboard
+# switchboard
 
 This application provides an API for interacting with IMAP servers
 across multiple accounts.
@@ -9,7 +9,7 @@ responsibilites across IMAP connections allows for vastly simpler
 management of the IMAP connections at the cost of multiple IMAP
 connections. My experience has been that it's worth it.
 
-`imapswitchboard` uses a custom IMAP module, located in
+`switchboard` uses a custom IMAP module, located in
 `src/imap.erl`. Its type specs indicate what commands it currently
 supports.
 
@@ -23,7 +23,7 @@ account, watching `active_imap`, the active imap process,
 
 ## Getting Started
 
-`imapswitchboard` uses `extend/erlang.mk` -- just ran `make` to build
+`switchboard` uses `extend/erlang.mk` -- just ran `make` to build
 the application, and you can start an erlang shell and load up the
 application with `make console`.
 

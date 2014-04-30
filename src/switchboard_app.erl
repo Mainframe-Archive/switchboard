@@ -1,4 +1,4 @@
-%% @doc imapswitchboard application
+%% @doc switchboard application
 -module(switchboard_app).
 
 -behaviour(application).

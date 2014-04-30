@@ -1,5 +1,5 @@
 %% -*- mode: erlang -*-
-{application, imapswitchboard,
+{application, switchboard,
  [
   {description, "Conduct monitoring and operations across email accounts"},
   {vsn, "0.1.0"},
