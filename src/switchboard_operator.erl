@@ -51,7 +51,6 @@ update_uid(Oper) ->
 -spec dispatch_fun(imap:account(), imap:mailbox()) ->
     fun((imap:response()) -> ok).
 dispatch_fun(Account, Mailbox) ->
-    lager:info("Dispatch fun being called for ~p", [Account]),
     Key = pubsub_key(Account, Mailbox),
     fun(Msg) ->
             gproc:send(Key, {idle, Msg}),
@@ -119,7 +118,7 @@ update_uid_internal(#state{account=Account,
                                      {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
             lists:foreach(
              fun({fetch, Data}) ->
-                     imapswitchboard:publish(new, {new, Account, Data});
+                     imapswitchboard:publish(new, {new, {Account, Mailbox}, Data});
                 (_) ->
                      ok
              end, lists:map(fun imap:clean/1, Emails));

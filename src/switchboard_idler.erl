@@ -28,10 +28,13 @@ init({ConnSpec, Auth, Mailbox}) ->
     RestartStrategy = one_for_one,
     MaxR = MaxT = 5,
     Account = imap:auth_to_username(Auth),
+    DispatchFun = switchboard_operator:dispatch_fun(Account, Mailbox),
     ImapSpec = {imap,
                 {imap, start_link,
                  [ConnSpec,
-                  [{cmds, [{cmd, {login, Auth}}]},
+                  [{cmds, [{cmd, {call, {login, Auth}}},
+                           {cmd, {call, {select, <<"INBOX">>}}},
+                           {cmd, {cast, idle}, [{dispatch, DispatchFun}]}]},
                    {post_init_callback,
                     imapswitchboard:register_callback(Account, {idler, Mailbox})}]]},
                 permanent,
@@ -45,37 +48,6 @@ init({ConnSpec, Auth, Mailbox}) ->
                     worker,
                     [imap]},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ImapSpec, OperatorSpec]}}.
-
-
-%%==============================================================================
-%% Internal functions.
-%%==============================================================================
-
-%% @doc PostInitCallback function to login+idle on the given mailbox.
-login_idle(Auth, Mailbox) ->
-    fun(State) ->
-            process_flag(trap_exit, true),
-            lager:info("Issuing login cmds for: ~p [~p]", [Auth, self()]),
-            Imap = self(),
-            spawn_link(
-              fun() ->
-                      {ok, _} = imap:call(Imap, {login, Auth}),
-                      {ok, _} = imap:call(Imap, {select, Mailbox}),
-                      %% Setup the dispatch fun to forward to the oper via gproc
-                      Account = imap:auth_to_username(Auth),
-                      DispatchFun = switchboard_operator:dispatch_fun(Account, Mailbox),
-                      ok = imap:cast(Imap, idle, [{dispatch, DispatchFun}]),
-                      imapswitchboard:register_callback(Account, {idler, Mailbox})
-              end),
-            receive
-                {'EXIT', _} ->
-                    process_flag(trap_exit, false),
-                    State
-            after
-                10000 ->
-                    throw(nologin)
-            end
-    end.
 
 
 %%==============================================================================
@@ -112,7 +84,8 @@ idler_teardown({_, _, Pid}) ->
     [any()].
 reg_asserts({{_ConnSpec, Auth}, Mailbox, _}) ->
     Account = imap:auth_to_username(Auth),
-    [?_assertMatch({Pid, _} when is_pid(Pid), gproc:await(imapswitchboard:key_for(Account, {Type, Mailbox})))
+    [?_assertMatch({Pid, _} when is_pid(Pid),
+                   gproc:await(imapswitchboard:key_for(Account, {Type, Mailbox})))
      || Type <- [idler, operator]].
 
 -endif.

@@ -338,13 +338,13 @@ handle_call(_Request, _From, State) ->
 %% @doc handle asynchronous casts
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
-    ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
+    % ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
     {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
 %% Called once all inital commands have been completed
 handle_cast({lifecycle, {cmds, complete}}, #state{opts=Opts} = State) ->
-    ?LOG_DEBUG("cmds complete", []),
+    % ?LOG_DEBUG("cmds complete", []),
     case proplists:get_value(post_init_callback, Opts) of
         undefined ->
             {noreply, State};
@@ -360,11 +360,11 @@ handle_cast(_Request, State) ->
 %% @doc handle messages
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
-    % ?LOG_DEBUG("Received: ~p", [Data]),
+    %% ?LOG_DEBUG("Received: ~p", [Data]),
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
-    ?LOG_DEBUG("Socket Closed: ~p", [self()]),
+    ?LOG_WARNING(handle_info, "Socket Closed: ~p", [self()]),
     {stop, normal, State};
 handle_info(Info, State) ->
     ?LOG_WARNING(handle_info, "unexpected: ~p", [Info]),
@@ -403,10 +403,14 @@ cmds_complete(Imap) ->
 cmds_call(Imap, Cmds) ->
     spawn_link(fun() ->
                        lists:foreach(
-                         fun({cmd, Cmd, Opts}) ->
+                         fun({cmd, {call, Cmd}}) ->
+                                 {ok, _} = imap:call(Imap, Cmd);
+                            ({cmd, {cast, Cmd}}) ->
+                                 {ok, _} = imap:cast(Imap, Cmd);
+                            ({cmd, {call, Cmd}, Opts}) ->
                                  {ok, _} = imap:call(Imap, Cmd, Opts);
-                            ({cmd, Cmd}) ->
-                                 {ok, _} = imap:call(Imap, Cmd)
+                            ({cmd, {cast, Cmd}, Opts}) ->
+                                 ok = imap:cast(Imap, Cmd, Opts)
                          end, Cmds),
                        cmds_complete(Imap)
                end).
@@ -446,7 +450,7 @@ churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
                         gb_trees:values(Cmds))),
     churn_buffer(State);
 churn_buffer(#state{cmds=Cmds} = State, [<<"+">> | Response]) ->
-    ?LOG_DEBUG("+: ~p", [Response]),
+    % ?LOG_DEBUG("+: ~p", [Response]),
     ok = lists:foreach(
            fun(Cmd) ->
                    dispatch(Cmd, {'+', Response})
@@ -957,7 +961,7 @@ dispatch_setup() ->
     {ConnSpec, Auth} = imapswitchboard:dispatch(),
     TestPid = self(),
     {ok, Imap} = start_link(ConnSpec,
-                            [{cmds, [{cmd, {login, Auth}}]},
+                            [{cmds, [{cmd, {call, {login, Auth}}}]},
                              {post_init_callback,
                                 fun(State) ->
                                         TestPid ! {imap, ready},
@@ -972,31 +976,8 @@ dispatch_setup() ->
 dispatch_teardown({_, Imap}) ->
     stop(Imap).
 
-
-%% @doc kill this?
-% -spec init_callback_blocker(fun((pid(), #state{}) -> any())) -> ok.
-% init_callback_reg(Callback, Key) ->
-%     fun(State) ->
-%             Imap = self(),
-%             Caller = spawn_monitor(
-%                        fun() ->
-%                                State1 = Callback(Imap, State),
-%                                lager:info("Sending msg: ~p",
-%                                           [{complete, {callback, self()}, State1}]),
-%                                Imap ! {complete, {callback, self()}, State1}
-%                        end),
-%             receive
-%                 {complete, {callback, Caller}, State1} ->
-%                     State1
-%             after
-%                 10000 ->
-%                     throw(init_callback_timeout)
-%             end
-%     end.
-
-
 dispatch_select_assertions({_, Imap}) ->
-    [?_assertMatch({ok, _}, call(Imap, {select, <<"INBOX">>}))].
+    [?_assertMatch({ok, _}, imap:call(Imap, {select, <<"INBOX">>}))].
 
 
 -endif.

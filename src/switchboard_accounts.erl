@@ -32,9 +32,9 @@ init({ConnSpec, Auth, Mailboxes}) ->
     ActiveChildSpec = {active,
                        {imap, start_link,
                         [ConnSpec,
-                         [{init_callback,
-                           imapswitchboard:register_callback(Account, active)},
-                         {post_init_callback, login(Auth)}]]},
+                         [{cmds, [{cmd, {call, {login, Auth}}}]},
+                          {post_init_callback,
+                           imapswitchboard:register_callback(Account, active)}]]},
                        permanent,
                        5000,
                        worker,
@@ -48,23 +48,6 @@ init({ConnSpec, Auth, Mailboxes}) ->
     {ok, {{RestartStrategy, MaxR, MaxT}, [ActiveChildSpec,
                                           IdlersChildSpec]}}.
 
-
-%%==============================================================================
-%% Internal functions
-%%==============================================================================
-
-%% @doc PostInitCallback function to login in.
--spec login(imap:auth()) ->
-    fun((State) -> State) when State :: any().
-login(Auth) ->
-    fun(State) ->
-            {ok, _} = imap:call(self, {login, Auth}),
-            %% The Operator can now update its PID.
-            {Oper, _} = gproc:await(imapswitchboard:key_for(imap:auth_to_username(Auth),
-                                                            operator)),
-            ok = switchboard_operator:update_uid(Oper),
-            State
-    end.
 
 
 %%==============================================================================
@@ -101,9 +84,11 @@ accounts_teardown({_, _, Pid}) ->
     [any()].
 accounts_reg_asserts({{_ConnSpec, Auth}, Mailboxes, _}) ->
     Account = imap:auth_to_username(Auth),
-    [[?_assert(is_pid(imapswitchboard:where(Account, {Type, Mailbox})))
+    [[?_assertMatch({Pid, _} when is_pid(Pid),
+                    gproc:await(imapswitchboard:key_for(Account, {Type, Mailbox})))
       || Type <- [idler, operator], Mailbox <- Mailboxes],
-     [?_assert(is_pid(imapswitchboard:where(Account, Type)))
+     [?_assertMatch({Pid, _} when is_pid(Pid),
+                    gproc:await(imapswitchboard:key_for(Account, Type)))
       || Type <- [active, account]]].
 
 -endif.
