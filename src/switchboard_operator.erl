@@ -1,5 +1,6 @@
 %% @doc the switchboard operator takes low level imap responses, and translates them...
 -module(switchboard_operator).
+-include("switchboard.hrl").
 -behaviour(gen_server).
 
 %% Interface exports
@@ -16,6 +17,13 @@
          handle_info/2,
          code_change/3,
          terminate/2]).
+
+
+-ifdef(TEST).
+-export([update_uid_internal/1,
+         current_uid/2]).
+-endif.
+
 
 %% Records
 -record(state, {account :: imap:account(),
@@ -116,7 +124,7 @@ terminate(_Reason, _State) ->
 %% Internal functions.
 %%==============================================================================
 
-%% @doc Updates the State's uid, publishing messages as necessary.
+%% @private Updates the State's uid, publishing messages as necessary.
 -spec update_uid_internal(#state{}) ->
     #state{}.
 update_uid_internal(#state{account=Account,
@@ -139,14 +147,23 @@ update_uid_internal(#state{account=Account,
     State#state{last_uid=Uid}.
 
 
-%% @doc Returns the current max uid for the given Account and Mailbox.
+%% @private helper function to get the fetch command's result's uid
+get_fetch_uid([]) ->
+    none;
+get_fetch_uid([{'*', [BinUid, <<"FETCH">>, [<<"UID">>, BinUid]]} | _]) ->
+    BinUid;
+get_fetch_uid([_ | Rest]) ->
+    get_fetch_uid(Rest).
+
+
+%% @private Returns the current max uid for the given Account and Mailbox.
 -spec current_uid(binary(), imap:mailbox()) ->
     {ok, integer()}.
 current_uid(Account, Mailbox) ->
     {Active, _} = gproc:await(switchboard:key_for(Account, active), 5000),
     {ok, _} = imap:call(Active, {select, Mailbox}),
-    {ok, [{'*', [BinUid, <<"FETCH">>, [<<"UID">>, BinUid]]},
-          {'OK', [<<"Success">>]}]} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
+    {ok, Resps} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
+    BinUid = get_fetch_uid(Resps),
     {ok, if is_integer(BinUid) -> BinUid;
             is_binary(BinUid)  -> binary_to_integer(BinUid)
          end}.
@@ -154,34 +171,3 @@ current_uid(Account, Mailbox) ->
 
 pubsub_key(Account, Mailbox) ->
     {p, l, {idler, Account, Mailbox}}.
-
-
-%%==============================================================================
-%% Eunit.
-%%==============================================================================
-
--define(TEST, true).
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
-swichboard_operator_test_() ->
-    [{foreach,
-      fun() -> case lists:member(<<"dispatchonme@gmail.com">>,
-                                 switchboard:which()) of
-                   true  -> [{<<"dispatchonme@gmail.com">>, <<"INBOX">>}];
-                   false -> []
-               end
-      end,
-      [fun update_uid_internal_assertions/1,
-       fun current_uid_assertions/1]}].
-
-update_uid_internal_assertions(Accounts) ->
-    [?_assertMatch(#state{last_uid=Uid} when is_integer(Uid),
-                   update_uid_internal(#state{account=A, mailbox=M}))
-     || {A, M} <- Accounts].
-
-current_uid_assertions(Accounts) ->
-    [?_assertMatch({ok, _}, current_uid(A, M)) || {A, M} <- Accounts].
-
--endif.

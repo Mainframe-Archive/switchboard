@@ -1,8 +1,9 @@
-%% -*- mode: emacs -*- 
+%% -*- mode: emacs -*-
 -define(TEST, true).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(DEBUG, true).
+-define(LIVE_TEST, true).
 
 %% Testing Account
 -define(DISPATCH, <<"dispatchonme@gmail.com">>).

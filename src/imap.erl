@@ -9,6 +9,8 @@
 %% the post_init_callback opt is a function that is run once all cmds have been completed
 
 -module(imap).
+-include("switchboard.hrl").
+
 -behaviour(gen_server).
 
 %% Interface exports
@@ -30,10 +32,20 @@
          code_change/3,
          terminate/2]).
 
-%% Macros
-% uncomment this if you want to enable debug mode
+%% Preprocessor
+-ifdef(TEST).
+%% When testing, export additional functions
+-export([clean_addresses/1,
+         cmd_to_list/1,
+         seqset_to_list/1,
+         pop_token/1,
+         decode_line/1,
+         tokenize/1,
+         parse/1]).
+-endif.
+
 -define(CALL_TIMEOUT, 5000).
--define(DEBUG, true).
+
 
 -ifdef(DEBUG).
     -define(LOG_DEBUG(Format, Data),
@@ -143,18 +155,6 @@
 %%==============================================================================
 %% Interface exports
 %%==============================================================================
-
-%% @TODO work into test lib
--define(TEST, true).
--ifdef(TEST).
--export([start_dispatch/0, parse/1]).
-start_dispatch() ->
-    {ok, Child} = start({ssl, <<"imap.gmail.com">>, 993}),
-    {ok, _} = call(Child, {login, {plain, <<"dispatchonme@gmail.com">>,
-                                   <<"jives48_cars">>}}),
-    {ok, Child}.
--endif.
-
 
 %% @equiv start(ConnSpec, [])
 -spec start(connspec()) ->
@@ -266,7 +266,7 @@ recv(Timeout, MonitorRef, Responses) ->
         end.
 
 
-%% @doc clean a response -- this is a convenience that can cut some fidelity
+%% @private clean a response -- this is a convenience that can cut some fidelity
 clean({'*', [_, <<"FETCH">>, _]} = Fetch) ->
     clean_fetch(Fetch);
 clean({'*', [<<"FLAGS">>, Flags]}) ->
@@ -279,7 +279,7 @@ clean({'OK',[<<"Success">>]}) ->
     {ok, success}.
 
 
-%% @doc returns the username for the given auth
+%% @private returns the username for the given auth
 -spec auth_to_username(auth()) ->
     binary().
 auth_to_username({plain, Username, _}) ->
@@ -723,7 +723,7 @@ pop_token(<<$\r, $\n, _/binary>> = Data, {number, NumberAcc}) ->
     {binary_to_integer(NumberAcc), Data, none};
 pop_token(<<" ", Rest/binary>>, {number, NumberAcc}) ->
     {binary_to_integer(NumberAcc), Rest, none};
-pop_token(<<D, Rest/binary>>, {number, NumberAcc}) when D >= 48, D < 57 ->
+pop_token(<<D, Rest/binary>>, {number, NumberAcc}) when D >= 48, D < 58 ->
     pop_token(Rest, {number, <<NumberAcc/binary, D>>});
 pop_token(<<D, Rest/binary>>, none) when D >= 48, D < 57 ->
     pop_token(Rest, {number, <<D>>});
@@ -757,9 +757,7 @@ pop_token(Binary, _) ->
     {none, Binary, none}.
 
 
-% -type parse_return() :: {[parse_term()] | none,
-%                         {binary(), parse_state(), [parse_term()]}}.
-
+%% @doc Parse the flat list of tokens into a data structurej
 -spec parse([token()]) ->
     {[imap_term()] | none, [token()], [imap_term()]}.
 parse(Tokens) ->
@@ -785,200 +783,3 @@ parse([')' | Rest], ParseAcc) ->
 
 parse([Token | Rest], ParseAcc) ->
     parse(Rest, [Token | ParseAcc]).
-
-
-%%==============================================================================
-%% Tests
-%%==============================================================================
-
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
--define(FETCH, {'*',[37,<<"FETCH">>,
-                     [<<"UID">>,37,<<"BODY">>,
-                      [[{string,<<"TEXT">>},
-                        {string,<<"PLAIN">>},
-                        [{string,<<"CHARSET">>},{string,<<"utf-8">>}],
-                        nil,nil,
-                        {string,<<"QUOTED-PRINTABLE">>},
-                        87,5],
-                       [{string,<<"TEXT">>},
-                        {string,<<"HTML">>},
-                        [{string,<<"CHARSET">>},{string,<<"utf-8">>}],
-                        nil,nil,
-                        {string,<<"QUOTED-PRINTABLE">>},
-                        850,11],
-                       {string,<<"ALTERNATIVE">>}],
-                      <<"ENVELOPE">>,
-                      [{string,<<"Thu, 24 Apr 2014 22:16:08 -0700">>},
-                       {string,<<"never">>},
-                       [[{string,<<"John Doe">>},
-                         nil,
-                         {string,<<"john">>},
-                         {string,<<"gmail.com">>}]],
-                       [[{string,<<"John Doe">>},
-                         nil,
-                         {string,<<"john">>},
-                         {string,<<"gmail.com">>}]],
-                       [[{string,<<"John Doe">>},
-                         nil,
-                         {string,<<"john">>},
-                         {string,<<"gmail.com">>}]],
-                       [[nil,nil,
-                         {string,<<"dispatchonme">>},
-                         {string,<<"gmail.com">>}]],
-                       nil,nil,nil,
-                       {string,<<"<etPan.5359ef98.ded7263.112@Thomass-MacBook-Pro.local>">>}],
-                      <<"FLAGS">>,[],<<"INTERNALDATE">>,
-                      {string,<<"25-Apr-2014 05:16:11 +0000">>},
-                      <<"RFC822.SIZE">>,3856]]}).
-
-
--define(ADDRESSES, [[{string,<<"John Doe">>},
-                     nil,
-                     {string,<<"john">>},
-                     {string,<<"gmail.com">>}],
-                    [{string,<<"Jane Doe">>},
-                     nil,
-                     {string,<<"jane">>},
-                     {string,<<"gmail.com">>}]]).
-
-%% Clean
-clean_test_() ->
-    [clean_address_assertions(),
-     clean_assertions()].
-
-clean_address_assertions() ->
-    [?_assertEqual([{address, [{name, <<"John Doe">>}, {email, <<"john@gmail.com">>}]},
-                    {address, [{name, <<"Jane Doe">>}, {email, <<"jane@gmail.com">>}]}],
-                   clean_addresses(?ADDRESSES))].
-
-clean_assertions() ->
-    [?_assertMatch({fetch, [{uid, 37},
-                            {body, _},
-                            {envelope, _},
-                            {flags, []},
-                            {internaldate, <<"25-Apr-2014 05:16:11 +0000">>},
-                            {rfc822size, 3856}]},
-                   clean(?FETCH))].
-
-
-%% Commands
-cmd_test_() ->
-    [?_assertEqual([<<"UID">>, <<"FETCH">>, <<"1:9">>, <<"full">>],
-                   cmd_to_list({uid, {fetch, {1, 9}}})),
-     seqset_to_list_assertions()].
-
-seqset_to_list_assertions() ->
-    [?_assertEqual(<<"1">>, seqset_to_list(1)),
-     ?_assertEqual(<<"1:9">>, seqset_to_list({1, 9}))].
-
-
-%% Tokenize
-pop_token_test_() ->
-    [pop_token_atoms(),
-     pop_token_numbers(),
-     pop_token_quoted()].
-
-pop_token_atoms() ->
-    [?_assertEqual({<<"atom">>, <<" ">>, none}, pop_token(<<"atom ">>)),
-     ?_assertEqual({<<"atom123">>, <<" ">>, none}, pop_token(<<"atom123 ">>))].
-
-pop_token_numbers() ->
-    [?_assertEqual({0, <<" ">>, none}, pop_token(<<"0 ">>)),
-     ?_assertEqual({123, <<" ">>, none}, pop_token(<<"123 ">>))].
-
-pop_token_quoted() ->
-    [?_assertEqual({{string, <<"quoted">>}, <<>>, none}, pop_token(<<"\"quoted\"">>))].
-
-
-tokenize_test_() ->
-    [tokenize_terms()].
-
-tokenize_terms() ->
-    [?_assertEqual({[1, 2, <<"a">>], <<>>, none}, tokenize(<<"1 2 a ">>)),
-     ?_assertEqual({[1, 2, '(', <<"a">>, ')', {string, <<"s">>}], <<>>, none},
-                   tokenize(<<"1 2 (a)\"s\"">>))].
-
-
-%% Parse
-parse_test_() ->
-    [parse_atoms(),
-     parse_numbers(),
-     parse_nils(),
-     parse_strings(),
-     parse_lists()].
-
-parse_atoms() ->
-    [?_assertEqual({none, [], [<<"atom">>]},
-                   parse([<<"atom">>]))].
-
-parse_nils() ->
-    [?_assertEqual({none, [], [nil]}, parse([nil]))].
-
-
-parse_numbers() ->
-    [?_assertEqual({[0], [], []}, parse([0, crlf])),
-     ?_assertEqual({[21], [], []}, parse([21, crlf]))].
-
-parse_strings() ->
-    [?_assertEqual({[{string, <<"string">>}], [], []},
-                   parse([{string, <<"string">>}, crlf]))].
-
-parse_lists() ->
-    [?_assertEqual({[1, [2, <<"c">>], 4], [], []},
-                   parse([1, '(', 2, <<"c">>, ')', 4, crlf]))].
-
-
-%% decode_line testing.
-decode_line_test_() ->
-    [decode_line_default()].
-
-
-decode_line_default() ->
-    [?_assertEqual({[1, 2, 3], {<<>>, none}, {[], []}},
-                   decode_line(<<"1 2 3\r\n">>))].
-
-
-%% The live tests use an IMAP connection to dispatchonme@gmail.com
--define(LIVE_TEST, true).
--ifdef(LIVE_TEST).
-
--type dispatch_test_spec() :: {{connspec(), auth()}, pid()}.
-
-dispatch_test_() ->
-    {foreach,
-     fun dispatch_setup/0,
-     fun dispatch_teardown/1,
-     [fun dispatch_select_assertions/1]}.
-
-
--spec dispatch_setup() ->
-    dispatch_test_spec().
-dispatch_setup() ->
-    {ConnSpec, Auth} = switchboard:dispatch(),
-    TestPid = self(),
-    {ok, Imap} = start_link(ConnSpec,
-                            [{cmds, [{cmd, {call, {login, Auth}}}]},
-                             {post_init_callback,
-                                fun(State) ->
-                                        TestPid ! {imap, ready},
-                                        State
-                                end}]),
-    ok = receive {imap, ready} -> ok after 5000 -> timeout end,
-    {{ConnSpec, Auth}, Imap}.
-
-
--spec dispatch_teardown(dispatch_test_spec()) ->
-    ok.
-dispatch_teardown({_, Imap}) ->
-    stop(Imap).
-
-dispatch_select_assertions({_, Imap}) ->
-    [?_assertMatch({ok, _}, imap:call(Imap, {select, <<"INBOX">>}))].
-
-
--endif.
-
--endif.

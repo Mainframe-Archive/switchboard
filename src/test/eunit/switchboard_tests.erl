@@ -55,9 +55,13 @@ pubsub_assertions() ->
 
 %% @private
 where_assertions(Account) ->
-    [?_assert(is_pid(switchboard:where(Account, account))),
-     ?_assert(is_pid(switchboard:where(Account, active))),
-     ?_assert(is_pid(switchboard:where(Account, {idler, ?DISPATCH_MAILBOX})))].
+    [?_assertMatch({P, _} when is_pid(P),
+                   gproc:await(switchboard:key_for(Account, account))),
+     ?_assertMatch({P, _} when is_pid(P),
+                   gproc:await(switchboard:key_for(Account, active))),
+     ?_assertMatch({P, _} when is_pid(P),
+                   gproc:await(switchboard:key_for(Account,
+                                                   {idler, ?DISPATCH_MAILBOX})))].
 
 
 %% @private
@@ -67,5 +71,5 @@ which_assertions(Account) ->
 
 %% @private test that the imap server can be queried
 query_assertions(Account) ->
-    Imap = switchboard:where(Account, active),
-    [?_assertMatch({ok, _}, imap:call(Imap, {select, <<"INBOX">>}))].
+    {Active, _} = gproc:await(switchboard:key_for(Account, active)),
+    [?_assertMatch({ok, _}, imap:call(Active, {select, <<"INBOX">>}))].
