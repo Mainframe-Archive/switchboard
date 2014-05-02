@@ -83,7 +83,9 @@ clean_suite_test_() ->
      clean_assertions()].
 
 clean_body_assertions() ->
-    {multipart, MultiPartType, BodyParts} = imap:clean_body(?BODY),
+    Body = imap:clean_body(?BODY),
+    MultiPartType = proplists:get_value(multipart, Body),
+    BodyParts = proplists:get_value(parts, Body),
     [?_assertEqual(<<"ALTERNATIVE">>, MultiPartType),
      [[?_assert(is_binary(proplists:get_value(type, Part))),
        ?_assert(is_binary(proplists:get_value(subtype, Part))),

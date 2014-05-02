@@ -267,7 +267,7 @@ recv(Timeout, MonitorRef, Responses) ->
         end.
 
 
-%% @private clean a response -- this is a convenience that can cut some fidelity
+%% @private Clean a response to be JSON serializable via jsx.
 clean({'*', [_, <<"FETCH">>, _]} = Fetch) ->
     clean_fetch(Fetch);
 clean({'*', [<<"FLAGS">>, Flags]}) ->
@@ -616,7 +616,7 @@ clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
     clean_fetch(Rest, [{body, clean_body(Body)} | Acc]).
 
 
-%% @doc clean the provided body
+%% @doc Clean the provided body.
 %% @todo this typing is worthless -- actually sit down and define the types
 %% @todo currently doesn't support multipart params
 -spec clean_body(_) ->
@@ -630,16 +630,30 @@ clean_body([{string, Type}, {string, SubType}, Params, Id,
             Description, {string, Encoding}, Size, _What], []) ->
     [{type, Type},
      {subtype, SubType},
-     {params, Params},
+     {params, clean_imap_props(Params)},
      {id, Id},
      {description, Description},
      {encoding, Encoding},
      {size, Size}];
 clean_body([{string, MultiPartType}], Acc) ->
-    {multipart, MultiPartType, lists:reverse(Acc)};
+    [{multipart, MultiPartType}, {parts, lists:reverse(Acc)}];
 
 clean_body([Head | Rest], Acc) ->
     clean_body(Rest, [clean_body(Head) | Acc]).
+
+
+%% @doc Clean an imap props list, e.g. [{string, <<"KEY">>}, {string, <<"VALUE">>}, ...].
+-spec clean_imap_props([{string, binary()}]) ->
+    [proplists:property()].
+clean_imap_props(Props) ->
+    clean_imap_props(Props, []).
+
+-spec clean_imap_props([{string, binary()}], [proplists:property()]) ->
+    [proplists:property()].
+clean_imap_props([], Acc) ->
+    lists:reverse(Acc);
+clean_imap_props([{string, Key}, {string, Value} | Rest], Acc) ->
+    clean_imap_props(Rest, [{Key, Value} | Acc]).
 
 
 %% @doc clean the provided address
