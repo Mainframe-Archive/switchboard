@@ -36,6 +36,7 @@
 -ifdef(TEST).
 %% When testing, export additional functions
 -export([clean_addresses/1,
+         clean_body/1,
          cmd_to_list/1,
          seqset_to_list/1,
          pop_token/1,
@@ -612,7 +613,33 @@ clean_fetch([<<"ENVELOPE">>,
                 {messageid, MessageId}],
     clean_fetch(Rest, [{envelope, Envelope} | Acc]);
 clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
-    clean_fetch(Rest, [{body, Body} | Acc]).
+    clean_fetch(Rest, [{body, clean_body(Body)} | Acc]).
+
+
+%% @doc clean the provided body
+%% @todo this typing is worthless -- actually sit down and define the types
+%% @todo currently doesn't support multipart params
+-spec clean_body(_) ->
+    [_].
+clean_body(Body) ->
+    clean_body(Body, []).
+
+-spec clean_body(_, [_]) ->
+    [_].
+clean_body([{string, Type}, {string, SubType}, Params, Id,
+            Description, {string, Encoding}, Size, _What], []) ->
+    [{type, Type},
+     {subtype, SubType},
+     {params, Params},
+     {id, Id},
+     {description, Description},
+     {encoding, Encoding},
+     {size, Size}];
+clean_body([{string, MultiPartType}], Acc) ->
+    {multipart, MultiPartType, lists:reverse(Acc)};
+
+clean_body([Head | Rest], Acc) ->
+    clean_body(Rest, [clean_body(Head) | Acc]).
 
 
 %% @doc clean the provided address

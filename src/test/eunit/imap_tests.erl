@@ -51,6 +51,19 @@
                      {string,<<"jane">>},
                      {string,<<"gmail.com">>}]]).
 
+-define(BODY, [[{string,<<"TEXT">>},
+                {string,<<"PLAIN">>},
+                [{string,<<"CHARSET">>},{string,<<"utf-8">>}],
+                nil,nil,
+                {string,<<"QUOTED-PRINTABLE">>},
+                87,5],
+               [{string,<<"TEXT">>},
+                {string,<<"HTML">>},
+                [{string,<<"CHARSET">>},{string,<<"utf-8">>}],
+                nil,nil,
+                {string,<<"QUOTED-PRINTABLE">>},
+                850,11],
+               {string,<<"ALTERNATIVE">>}]).
 
 %% @private start the dispatch user -- useful for testing
 start_dispatch() ->
@@ -65,8 +78,21 @@ start_dispatch() ->
 %%==============================================================================
 
 clean_suite_test_() ->
-    [clean_address_assertions(),
+    [clean_body_assertions(),
+     clean_address_assertions(),
      clean_assertions()].
+
+clean_body_assertions() ->
+    {multipart, MultiPartType, BodyParts} = imap:clean_body(?BODY),
+    [?_assertEqual(<<"ALTERNATIVE">>, MultiPartType),
+     [[?_assert(is_binary(proplists:get_value(type, Part))),
+       ?_assert(is_binary(proplists:get_value(subtype, Part))),
+       ?_assert(is_list(proplists:get_value(params, Part))),
+       ?_assert(proplists:get_value(id, Part) =/= undefined),
+       ?_assert(proplists:get_value(description, Part) =/= undefined),
+       ?_assert(is_binary(proplists:get_value(encoding, Part))),
+       ?_assert(is_integer(proplists:get_value(size, Part)))]
+      || Part <- BodyParts]].
 
 clean_address_assertions() ->
     [?_assertEqual([{address, [{name, <<"John Doe">>}, {email, <<"john@gmail.com">>}]},
@@ -178,7 +204,7 @@ dispatch_live_suite_test_() ->
 -spec dispatch_setup() ->
     dispatch_test_spec().
 dispatch_setup() ->
-    {ConnSpec, Auth} = switchboard:dispatch(),
+    {ConnSpec, Auth} = switchboard_tests:dispatch(),
     TestPid = self(),
     {ok, Imap} = imap:start_link(ConnSpec,
                                  [{cmds, [{cmd, {call, {login, Auth}}}]},
