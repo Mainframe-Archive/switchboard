@@ -1,12 +1,48 @@
-%% @doc An imap connection
+%%------------------------------------------------------------------------------
+%% @author Thomas Moulia <jtmoulia@pocketknife.io>
+%%
+%% @copyright Copyright (c) 2014, Spatch
+%% All rights reserved.
+%%
+%% Redistribution and use in source and binary forms, with or without
+%% modification, are permitted provided that the following conditions are met:
+%%
+%% 1. Redistributions of source code must retain the above copyright notice, this
+%% list of conditions and the following disclaimer.
+%%
+%% 2. Redistributions in binary form must reproduce the above copyright notice,
+%% this list of conditions and the following disclaimer in the documentation
+%% and/or other materials provided with the distribution.
+%%
+%% 3. Neither the name of the copyright holder nor the names of its contributors
+%% may be used to endorse or promote products derived from this software without
+%% specific prior written permission.
+%%
+%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+%% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+%% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+%% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+%% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+%% THE POSSIBILITY OF SUCH DAMAGE.
+%% @end
+%%
+%% @doc An RFC 3501 IMAP Client.
 %% http://tools.ietf.org/html/rfc3501
+%%
 %% In the API, binaries are used for string-like data.
-
-%% To allow the imap connection to be properly setup before usage, there
-%% are some lifecycle hooks:
-%% a cmds opt specifies a list of commands which are executed in order
-%% in a separately spawned thread
-%% the post_init_callback opt is a function that is run once all cmds have been completed
+%%
+%% To allow the imap connection to be properly setup before usage,
+%% there are some lifecycle hooks: a cmds opt specifies a list of
+%% commands which are executed in order in a separately spawned thread
+%% the post_init_callback opt is a function that is run once all cmds
+%% have been completed
+%% @end
+%%------------------------------------------------------------------------------
 
 -module(imap).
 -include("switchboard.hrl").
@@ -67,7 +103,7 @@
 
 %% Types
 -type socket() :: ssl:sslsocket() | gen_tcp:socket().
-%% account() should be your good old <<"address@email.com">>"
+%% account() should be your good old "address@email.com"
 -type account() :: binary().
 %% connspec() specifies a tcp connection, see gen_tcp:connect args
 -type connspec() :: {ssl | plain, Host :: binary(), Port :: integer()} |
@@ -79,7 +115,9 @@
 %% auth() specifies an authorization type and arguments
 %% XXX - Avoid operating with user credentials in plaintext
 -type auth_plain() :: {plain, Username :: binary(), Password :: binary()}.
--type auth_xoauth2() :: {xoauth2, Account :: binary(), Token :: binary()}.
+-type auth_xoauth2() :: {xoauth2, Account :: binary(),
+                         AccessToken :: binary() |
+                         {RefreshToken :: binary(), RefreshUrl :: binary()}}.
 -type auth() :: auth_plain() | auth_xoauth2().
 
 %% opt() specifies an option that the imap process can be started with
@@ -190,7 +228,7 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
-%% @equiv cast(Server, Cmd, [{dispatch, fun}])
+%% @equiv cast(Server, Cmd, [{dispatch, dispatch_to_ref(self())}])
 -spec cast(pid(), cmd()) ->
     ok.
 cast(Server, Cmd) ->
@@ -203,19 +241,19 @@ cast(Server, Cmd, Opts) ->
     gen_server:cast(Server, {cmd, Cmd, Opts}).
 
 
-%% @equiv call(Server, Cmd, [{dispatch, fun}])
+%% @equiv call(Server, Cmd, [{dispatch, dispatch_to_ref(self())}])
 -spec call(pid(), cmd()) ->
     {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd) ->
     call(Server, Cmd, [{dispatch, dispatch_to_ref(self())}]).
 
-%% @equiv call(Server, Cmd, Opts, ?CALL_TIMEOUT)
+%% @equiv call(Server, Cmd, Opts, 5000)
 -spec call(pid(), cmd(), [cmd_opt()]) ->
     {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd, Opts) ->
     call(Server, Cmd, Opts, ?CALL_TIMEOUT).
 
-%% @doc call the command, waiting until timeout for all responses
+%% @doc Call the command, waiting until timeout for all responses.
 -spec call(pid(), cmd(), [cmd_opt()], integer()) ->
     {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd, Opts, Timeout) ->
@@ -226,25 +264,28 @@ call(Server, Cmd, Opts, Timeout) ->
     Responses.
 
 
-%% @equiv recv(?CALL_TIMEOUT)
+%% @equiv recv(5000)
 -spec recv() ->
     {ok, _} | {'+', _} | {error, _}.
 recv() ->
     recv(?CALL_TIMEOUT).
 
-%% @equiv recv(Timeout, none)
+%% @doc Receive response until completion message.
+%%
+%% Used by call.
+%% @end
 -spec recv(integer()) ->
     {ok, _} | {'+', _} | {error, _}.
 recv(Timeout) ->
     recv(Timeout, none).
 
-%% @doc receive response until completion message, optional monitor used be call
+%% @private
 -spec recv(integer(), reference() | none) ->
     {ok, _} | {'+', _} | {error, _}.
 recv(Timeout, MonitorRef) ->
     recv(Timeout, MonitorRef, []).
 
-%% @private helper for recieving responses
+%% @private Helper for receiving responses.
 -spec recv(integer(), reference() | none, _) ->
     {ok, _} | {'+', _} | {error, _}.
 recv(Timeout, MonitorRef, Responses) ->
@@ -293,7 +334,7 @@ auth_to_username({xoauth2, Account}) ->
 %% Callback exports
 %%==============================================================================
 
-%% @doc init callback
+%% @private
 -spec init({connspec(), [opt()]}) ->
     {ok, #state{}} | {stop, _}.
 init({{SocketType, Host, Port}, Opts}) ->
@@ -333,11 +374,13 @@ init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
             {stop, Reason}
     end.
 
-%% @doc handle synchronous calls
+
+%% @private handle synchronous calls
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-%% @doc handle asynchronous casts
+
+%% @private handle asynchronous casts
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     % ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
@@ -373,11 +416,13 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 
+%% @private
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-%% TODO -- on termination send {error, _} msgs to all open cmds
+%% @private
+%% @todo -- on termination send {error, _} msgs to all open cmds
 terminate(Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
     ?LOG_WARNING(terminate, "TERMINATING ~p", [Reason]),
     SocketType:close(Socket);
@@ -507,6 +552,18 @@ cmd_to_data(InternalCmd) ->
     iodata().
 cmd_to_list({login, {plain, Username, Password}}) ->
     [<<"LOGIN">>, Username, Password];
+cmd_to_list({login, {xoauth2, Account, {RefreshToken, RefreshUrl}}}) ->
+    %% @todo wrap up the req
+    case httpc:request(get, {RefreshUrl, RefreshToken, []}, [], []) of
+        ok -> ok
+    end,
+    AccessToken = <<>>,
+    cmd_to_list({login, {xoauth2, Account, AccessToken}});
+cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
+    Encoded = base64:encode(<<"user=", Account/binary,
+                             "auth=Bearer ", AccessToken/binary,
+                             "">>),
+    [<<"AUTHENTICATE">>, <<"XOAUTH2">>, Encoded];
 cmd_to_list(list) ->
     [<<"LIST">>];
 cmd_to_list({select, Mailbox}) ->
@@ -642,7 +699,7 @@ clean_body([Head | Rest], Acc) ->
     clean_body(Rest, [clean_body(Head) | Acc]).
 
 
-%% @doc Clean an imap props list, e.g. [{string, <<"KEY">>}, {string, <<"VALUE">>}, ...].
+%% @doc Clean an imap props list, e.g. [{string, &lt;&lt;"KEY"&gt;&gt;}, {string, &lt;&lt;"VALUE"&gt;&gt;}, ...].
 -spec clean_imap_props([{string, binary()}]) ->
     [proplists:property()].
 clean_imap_props(Props) ->
@@ -656,7 +713,7 @@ clean_imap_props([{string, Key}, {string, Value} | Rest], Acc) ->
     clean_imap_props(Rest, [{Key, Value} | Acc]).
 
 
-%% @doc clean the provided address
+%% @private clean the provided address
 -spec clean_addresses([[{string, binary()}]]) ->
     [address()].
 clean_addresses(nil) ->
