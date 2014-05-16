@@ -1,7 +1,4 @@
 %%------------------------------------------------------------------------------
-%% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%%
-%% @copyright Copyright (c) 2014, Spatch
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -31,18 +28,22 @@
 %% THE POSSIBILITY OF SUCH DAMAGE.
 %% @end
 %%
+%% @author Thomas Moulia <jtmoulia@pocketknife.io>
+%% @copyright Copyright (c) 2014, Spatch
+%% @end
+%%------------------------------------------------------------------------------
+
 %% @doc An RFC 3501 IMAP Client.
-%% http://tools.ietf.org/html/rfc3501
 %%
-%% In the API, binaries are used for string-like data.
+%% Binaries are used for string-like data.
 %%
 %% To allow the imap connection to be properly setup before usage,
 %% there are some lifecycle hooks: a cmds opt specifies a list of
 %% commands which are executed in order in a separately spawned thread
 %% the post_init_callback opt is a function that is run once all cmds
 %% have been completed
-%% @end
-%%------------------------------------------------------------------------------
+%%
+%% @reference See <a href="http://tools.ietf.org/html/rfc3501">RFC 3501</a>.
 
 -module(imap).
 -include("switchboard.hrl").
@@ -201,7 +202,7 @@
 start(ConnSpec) ->
     start(ConnSpec, []).
 
-%% @doc start a standalone IMAP connection
+%% @doc Start a standalone IMAP connection.
 -spec start(connspec(), [opt()]) ->
     {ok, pid()} | _.
 start(ConnSpec, Opts) ->
@@ -214,14 +215,14 @@ start(ConnSpec, Opts) ->
 start_link(ConnSpec) ->
     start_link(ConnSpec, []).
 
-%% @doc start an IMAP connection as part of the supervision tree
+%% @doc Start an IMAP connection as part of the supervision tree.
 -spec start_link(connspec(), [opt()]) ->
     {ok, pid()} | _.
 start_link(ConnSpec, Opts) ->
     gen_server:start_link(?MODULE, {ConnSpec, Opts}, []).
 
 
-%% @doc stop the server
+%% @doc Stop the IMAP client.
 -spec stop(pid()) ->
     ok.
 stop(Pid) ->
@@ -234,7 +235,7 @@ stop(Pid) ->
 cast(Server, Cmd) ->
     cast(Server, Cmd, [{dispatch, dispatch_to_ref(self())}]).
 
-%% @doc asynchronously cast the cmd, return without waiting for a response
+%% @doc Asynchronously cast the cmd.
 -spec cast(pid(), cmd(), [cmd_opt()]) ->
     ok.
 cast(Server, Cmd, Opts) ->
@@ -273,7 +274,7 @@ recv() ->
 %% @doc Receive response until completion message.
 %%
 %% Used by call.
-%% @end
+
 -spec recv(integer()) ->
     {ok, _} | {'+', _} | {error, _}.
 recv(Timeout) ->
@@ -308,7 +309,9 @@ recv(Timeout, MonitorRef, Responses) ->
         end.
 
 
-%% @private Clean a response to be JSON serializable via jsx.
+%% @doc Clean a response to be JSON serializable via jsx. In other words,
+%% use proplists.
+
 clean({'*', [_, <<"FETCH">>, _]} = Fetch) ->
     clean_fetch(Fetch);
 clean({'*', [<<"FLAGS">>, Flags]}) ->
@@ -321,7 +324,8 @@ clean({'OK',[<<"Success">>]}) ->
     {ok, success}.
 
 
-%% @private returns the username for the given auth
+%% @doc Returns the username for the given authorization. This is used
+%% to simplify process registration.
 -spec auth_to_username(auth()) ->
     binary().
 auth_to_username({plain, Username, _}) ->
@@ -375,12 +379,12 @@ init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
     end.
 
 
-%% @private handle synchronous calls
+%% @private
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 
-%% @private handle asynchronous casts
+%% @private
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     % ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
@@ -402,7 +406,7 @@ handle_cast(_Request, State) ->
     {noreply, State}.
 
 
-%% @doc handle messages
+%% @private
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
     ?LOG_DEBUG("Received: ~p", [Data]),
@@ -436,14 +440,14 @@ terminate(Reason, _State) ->
 %% Internal functions
 %%==============================================================================
 
-%% @doc this function casts a lifecycle cmds completion msg to the Imap server
+%% @doc Casts a lifecycle cmds completion msg to the IMAP server.
 -spec cmds_complete(pid()) ->
     ok.
 cmds_complete(Imap) ->
     gen_server:cast(Imap, {lifecycle, {cmds, complete}}).
 
 
-%% @doc call the list of commands in a separate process. used in startup
+%% @doc Call the list of commands in a separate process. Used in startup.
 -spec cmds_call(pid(), [cmd()]) ->
     pid().
 cmds_call(Imap, Cmds) ->
@@ -462,7 +466,7 @@ cmds_call(Imap, Cmds) ->
                end).
 
 
-%% @doc returns a dispatch function for sending messages to the provided pid
+%% @doc Returns a dispatch function for sending messages to the provided pid.
 -spec dispatch_to_ref(pid() | port() | atom()) ->
     fun((response()) -> ok).
 dispatch_to_ref(Ref) ->
@@ -472,7 +476,7 @@ dispatch_to_ref(Ref) ->
     end.
 
 
-%% @doc churn the buffer by parsing responses and sending them to the proper processes
+%% @doc Churn the buffer by parsing and dispatching responses.
 -spec churn_buffer(#state{}) ->
     #state{}.
 churn_buffer(#state{tokenize_state=TokenizeState, parse_state=ParseState} = State) ->
@@ -481,7 +485,8 @@ churn_buffer(#state{tokenize_state=TokenizeState, parse_state=ParseState} = Stat
                  Result).
 
 
-%% @private internal churn_buffer helper
+%% @private
+%% @doc Internal churn_buffer helper.
 -spec churn_buffer(#state{}, [imap_term()] | none) ->
     #state{}.
 churn_buffer(State, none) ->
@@ -518,7 +523,8 @@ churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
                  end).
 
 
-%% @doc helper for dispatching a msg using the cmds dispatch fun[s]
+%% @private
+%% @doc Helper for dispatching a msg using the cmds dispatch fun[s].
 -spec dispatch(internal_cmd(), _) ->
     ok.
 dispatch({cmd, _, Opts} = IntCmd, Msg) ->
@@ -533,13 +539,15 @@ dispatch(IntCmd, Msg, [Fun | Rest]) ->
     dispatch(IntCmd, Msg, Rest).
 
 
-%% @doc returns true if the response is associated with the given cmd
+%% @private
+%% @doc Returns true if the response is associated with the given command.
 -spec cmds_response(_, _) ->
     boolean().
 cmds_response(_Cmd, _Response) ->
     true.
 
-%% @doc return a command as iodata() ready to be sent to the IMAP server
+%% @private
+%% @doc Return a command as iodata() ready to be sent to the IMAP serverl
 -spec cmd_to_data(cmd()) ->
     iodata().
 cmd_to_data(InternalCmd) ->
@@ -547,7 +555,8 @@ cmd_to_data(InternalCmd) ->
     intersperse(" ", cmd_to_list(InternalCmd)) ++ ["\r\n"].
 
 
-%% @doc return the list of command tokens
+%% @private
+%% @doc Return the list of command tokens.
 -spec cmd_to_list(cmd()) ->
     iodata().
 cmd_to_list({login, {plain, Username, Password}}) ->
@@ -586,8 +595,11 @@ cmd_to_list(idle) ->
     [<<"IDLE">>].
 
 
-%% @doc returns the list as imap command tokens
+%% @private
+%% @doc Returns the list as imap command tokens.
+%%
 %% I don't much like how I'm building commands...
+
 -spec list_to_imap_list(binary() | [binary()]) ->
     binary() | [binary()].
 list_to_imap_list(List) when is_list(List) ->
@@ -596,6 +608,7 @@ list_to_imap_list(Term) ->
     Term.
 
 
+%% @private
 %% @doc returns the list of command tokens associated with the sequence set
 -spec seqset_to_list(seqset()) ->
     iodata().
@@ -611,6 +624,7 @@ seqset_to_list(Item) ->
     integer_to_binary(Item).
 
 
+%% @private
 %% @doc intersperses the separator between list elements
 -spec intersperse(Sep, [Sep | A]) ->
     [A] when Sep :: _, A :: _.
@@ -622,6 +636,7 @@ intersperse(Sep, [X | Xs]) ->
   [X, Sep | intersperse(Sep, Xs)].
 
 
+%% @private
 %% @doc start an app or list of apps
 -spec start_app(atom() | [atom()]) ->
     ok.
@@ -640,6 +655,7 @@ start_app(App) ->
     start_app([App]).
 
 
+%% @private
 clean_fetch({'*', [_Id, <<"FETCH">>, Params]}) ->
     clean_fetch(Params, []).
 
@@ -673,6 +689,7 @@ clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
     clean_fetch(Rest, [{body, clean_body(Body)} | Acc]).
 
 
+%% @private
 %% @doc Clean the provided body.
 %% @todo this typing is worthless -- actually sit down and define the types
 %% @todo currently doesn't support multipart params
@@ -699,7 +716,9 @@ clean_body([Head | Rest], Acc) ->
     clean_body(Rest, [clean_body(Head) | Acc]).
 
 
-%% @doc Clean an imap props list, e.g. [{string, &lt;&lt;"KEY"&gt;&gt;}, {string, &lt;&lt;"VALUE"&gt;&gt;}, ...].
+%% @private
+%% @doc Clean an imap props list, e.g.
+%% `[{string, &lt;&lt;"KEY"&gt;&gt;}, {string, &lt;&lt;"VALUE"&gt;&gt;}, ...]'.
 -spec clean_imap_props([{string, binary()}]) ->
     [proplists:property()].
 clean_imap_props(Props) ->
@@ -713,7 +732,8 @@ clean_imap_props([{string, Key}, {string, Value} | Rest], Acc) ->
     clean_imap_props(Rest, [{Key, Value} | Acc]).
 
 
-%% @private clean the provided address
+%% @private
+%% doc Clean the provided address.
 -spec clean_addresses([[{string, binary()}]]) ->
     [address()].
 clean_addresses(nil) ->
@@ -741,12 +761,13 @@ clean_addresses([[RawName, _, {string, MailBox}, {string, Host}] | Rest], Acc) -
 
 -type pop_token_ret() :: {token() | none, binary(), tokenize_state()}.
 
-
+%% @private
 -spec decode_line(binary()) ->
     {[imap_term()] | none,  binary(), tokenize_state(), [imap_term()]}.
 decode_line(Data) ->
     decode_line({Data, none}, {[], []}).
 
+%% @private
 -spec decode_line({binary(), tokenize_state()}, {[token()], [imap_term()]}) ->
     {[imap_term()] | none,  {binary(), tokenize_state()}, {[token()], [imap_term()]}}.
 decode_line({Data, TokenizeState}, {TokenBuffer, ParseAcc}) ->
@@ -759,6 +780,7 @@ decode_line({Data, TokenizeState}, {TokenBuffer, ParseAcc}) ->
     end.
 
 
+%% @private
 %% @doc tokenize the imap data
 -spec tokenize(binary()) ->
     {[token()], binary(), tokenize_state()}.
@@ -778,12 +800,14 @@ tokenize(Data, Tokens, {Token, Rest, TokenizeState}) ->
     tokenize(Data, [Token | Tokens], pop_token(Rest, TokenizeState)).
 
 
+%% @private
 %% @equiv pop_token(Data, none)
 -spec pop_token(binary()) ->
     pop_token_ret().
 pop_token(Data) ->
     pop_token(Data, none).
 
+%% @private
 %% @doc pop the next token from the imap data, returning the state
 -spec pop_token(binary(), tokenize_state()) ->
     {token() | none, binary(), tokenize_state()}.
@@ -855,6 +879,7 @@ pop_token(Binary, _) ->
     {none, Binary, none}.
 
 
+%% @private
 %% @doc Parse the flat list of tokens into a data structurej
 -spec parse([token()]) ->
     {[imap_term()] | none, [token()], [imap_term()]}.

@@ -8,7 +8,7 @@
          dispatch/0]).
 
 
-%% @doc Get the dispatch user's active Imap connection
+%% @private Get the dispatch user's active Imap connection.
 where_dispatch() ->
     switchboard:where(?DISPATCH, active).
 

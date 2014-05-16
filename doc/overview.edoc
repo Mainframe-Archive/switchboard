@@ -1,0 +1,32 @@
+@author Thomas Moulia <jtmoulia@pocketknife.io>
+@copyright Copyright (c) 2014, ThusFresh, Inc.
+@title Switchboard
+@doc Switchboard is a <a href="http://spatch.co/">Spatch</a> product.
+
+Switchboard provides high-level tools for managing multiple IMAP clients
+and tying in workers.
+
+Please see the readme.markdown for more technical details (TODO -- move
+the good stuff from the readme into here).
+
+
+<h3>Example: Push Notifications</h3>
+
+A straightforward use case is new email push notifications for
+mobile email applications. Due to backgrounding restrictions and
+battery abuse, it's difficult to monitor for new emails client-side.
+Instead, you can add the accounts to Switchboard on the server-side.
+A worker subscribed to Switchboard's new email notifications
+can then send push notifications down to the client.
+
+
+<h3>Security</h3>
+
+Emails are highly sensitive, and Switchboard is only as secure as the
+server which it is on. Beyond personal use, great care should be taken
+to ensure that both Switchboard and its environment are secure.
+
+In addition to plain auth, Switchboard's IMAP client supports <a
+href="https://developers.google.com/gmail/xoauth2_protocol">XOAUTH2</a>.
+To keep your user's credentials safe, use XOAUTH2 or a similar
+solution whenever possible.

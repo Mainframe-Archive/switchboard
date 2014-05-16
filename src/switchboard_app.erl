@@ -1,7 +1,4 @@
 %%------------------------------------------------------------------------------
-%% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%%
-%% @copyright Copyright (c) 2014, Spatch
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -29,12 +26,15 @@
 %% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 %% THE POSSIBILITY OF SUCH DAMAGE.
-%% @end
 %%
-%% @doc This module implements the application behavior and starts the
-%% top level switchboard supervisor.
+%% @author Thomas Moulia <jtmoulia@pocketknife.io>
+%% @copyright Copyright (c) 2014, ThusFresh, Inc.
 %% @end
 %%------------------------------------------------------------------------------
+
+%% @doc This module implements the application behavior and starts the
+%% top level switchboard supervisor.
+
 -module(switchboard_app).
 
 -behaviour(application).

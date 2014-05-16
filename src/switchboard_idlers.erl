@@ -1,7 +1,4 @@
 %%------------------------------------------------------------------------------
-%% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%%
-%% @copyright Copyright (c) 2014, Spatch
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -29,11 +26,15 @@
 %% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 %% THE POSSIBILITY OF SUCH DAMAGE.
-%% @end
 %%
-%% @doc simple_one_for_one supervisor for imap idling processes
+%% @author Thomas Moulia <jtmoulia@pocketknife.io>
+%% @copyright Copyright (c) 2014, Spatch
 %% @end
 %%------------------------------------------------------------------------------
+
+%% @doc `simple_one_for_one supervisor' for imap idling processes.
+
+
 -module(switchboard_idlers).
 -behaviour(supervisor).
 
@@ -74,6 +75,7 @@ start_child(Sup, Mailbox) ->
 %% Callback exports
 %%==============================================================================
 
+%% @private
 init({ConnSpec, Auth}) ->
     RestartStrategy =  simple_one_for_one,
     MaxR = MaxT = 5,

@@ -1,7 +1,4 @@
 %%------------------------------------------------------------------------------
-%% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%%
-%% @copyright Copyright (c) 2014, Spatch
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -29,11 +26,14 @@
 %% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 %% THE POSSIBILITY OF SUCH DAMAGE.
-%% @end
 %%
-%% @doc Supervisor for an idling IMAP process and the `imap_operator`.
+%% @author Thomas Moulia <jtmoulia@pocketknife.io>
+%% @copyright Copyright (c) 2014, Spatch
 %% @end
 %%------------------------------------------------------------------------------
+
+%% @doc Supervisor for an idling IMAP process and the `imap_operator'.
+
 
 -module(switchboard_idler).
 -behaviour(supervisor).
@@ -59,6 +59,7 @@ start_link(ConnSpec, Auth, Mailbox) ->
 %% Callback exports
 %%==============================================================================
 
+%% @private
 init({ConnSpec, Auth, Mailbox}) ->
     RestartStrategy = one_for_one,
     MaxR = MaxT = 5,

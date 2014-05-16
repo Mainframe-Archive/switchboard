@@ -4,3 +4,9 @@ deps/
 log/
 .imapswitchboard.plt
 erl_crash.dump
+
+# Documentation
+doc/*.html
+doc/edoc-info
+doc/erlang.png
+doc/stylesheet.css

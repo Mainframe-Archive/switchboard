@@ -1,7 +1,4 @@
 %%------------------------------------------------------------------------------
-%% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%%
-%% @copyright Copyright (c) 2014, Spatch
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -29,10 +26,14 @@
 %% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 %% THE POSSIBILITY OF SUCH DAMAGE.
-%% @end
 %%
-%% @doc Top level supervisor for the application.
+%% @author Thomas Moulia <jtmoulia@pocketknife.io>
+%% @copyright Copyright (c) 2014, ThusFresh, Inc.
+%% @end
 %%------------------------------------------------------------------------------
+
+%% @doc Top level supervisor for the Switchboard application.
+
 
 -module(switchboard_sup).
 -behaviour(supervisor).
@@ -50,11 +51,13 @@
 %% Interface exports
 %%==============================================================================
 
+%% @doc Start the supervisor as part of the supervision tree.
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 
-%% @doc add a new account to be monitored
+%% @doc Add a new child. `switchboard:add' is a public
+%% facing alias for this function.
 -spec start_child(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startchild_ret().
 start_child(ConnSpec, Auth, Mailboxes) ->
@@ -66,7 +69,7 @@ start_child(ConnSpec, Auth, Mailboxes) ->
     end.
 
 
-%% @doc stop the child given the provided identifiers
+%% @doc Stop the child.
 -spec stop_child(binary()) ->
     ok | {error, not_found | simple_one_for_one}.
 stop_child(Account) ->
@@ -78,6 +81,7 @@ stop_child(Account) ->
 %% Callback exports
 %%==============================================================================
 
+%% @private
 init(no_args) ->
     RestartStrategy = simple_one_for_one,
     MaxR = MaxT = 5,
