@@ -28,7 +28,7 @@
 %% THE POSSIBILITY OF SUCH DAMAGE.
 %%
 %% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%% @copyright Copyright (c) 2014, Spatch
+%% @copyright Copyright (c) 2014, ThusFresh, Inc.
 %% @end
 %%------------------------------------------------------------------------------
 
@@ -60,6 +60,7 @@ start_link(ConnSpec, Auth, Mailboxes) ->
 %% Callback exports
 %%==============================================================================
 
+%% @private
 init({ConnSpec, Auth, Mailboxes}) ->
     Account = imap:auth_to_username(Auth),
     true = gproc:reg(switchboard:key_for(Account, account)),
