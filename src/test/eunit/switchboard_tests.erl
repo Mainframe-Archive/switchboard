@@ -21,7 +21,9 @@ add_dispatch() ->
 
 %% @private Useful for the console
 dispatch() ->
-    {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH}.
+    %{?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH}.
+    {?DISPATCH_CONN_SPEC, {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}}.
+    
 
 
 %% @private Run the suite of tests.

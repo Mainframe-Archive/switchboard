@@ -29,7 +29,7 @@
 %% @end
 %%
 %% @author Thomas Moulia <jtmoulia@pocketknife.io>
-%% @copyright Copyright (c) 2014, Spatch
+%% @copyright Copyright (c) 2014, ThusFresh, Inc.
 %% @end
 %%------------------------------------------------------------------------------
 
@@ -40,6 +40,7 @@
 %% To allow the imap connection to be properly setup before usage,
 %% there are some lifecycle hooks: a cmds opt specifies a list of
 %% commands which are executed in order in a separately spawned thread
+%%
 %% the post_init_callback opt is a function that is run once all cmds
 %% have been completed
 %%
@@ -121,9 +122,10 @@
                          {RefreshToken :: binary(), RefreshUrl :: binary()}}.
 -type auth() :: auth_plain() | auth_xoauth2().
 
-%% opt() specifies an option that the imap process can be started with
-%% init_callback will be called in the init gen_server callback function (gproc reg)
--type opt() :: {init_callback, fun(() -> ok)}.
+%% opt() specifies an option that the imap process can be started with -- see start_link
+-type opt() :: {init_callback, fun(() -> ok)}
+             | {post_init_callback, fun(() -> ok)}
+             | {cmds, [{cmd, cmd()}]}.
 
 %% response() is passed into the applicable commands dispatch fun
 -type response() :: {'*' | '+' | 'OK' | 'NO' | 'BAD', imap_term()}.
@@ -182,7 +184,6 @@
               seqset/0]).
 
 
-%% imap gen_server state
 -record(state, {socket :: socket(),
                 connspec :: connspec(),
                 opts = [] :: [proplist:property()],
@@ -203,6 +204,8 @@ start(ConnSpec) ->
     start(ConnSpec, []).
 
 %% @doc Start a standalone IMAP connection.
+%% @see start_link/2
+
 -spec start(connspec(), [opt()]) ->
     {ok, pid()} | _.
 start(ConnSpec, Opts) ->
@@ -216,6 +219,29 @@ start_link(ConnSpec) ->
     start_link(ConnSpec, []).
 
 %% @doc Start an IMAP connection as part of the supervision tree.
+%%
+%% Options:
+%% <dl>
+%%   <dt>`{cmd, [{cmd, Cmd}]}'</dt>
+%%     <dd>A list of valid commands, tagged with `cmd' which will be called against the
+%%         IMAP client from a separate process on start. Use this
+%%         to bring the IMAP client to the correct initial state.
+%%
+%%         For example, if starting an IMAP client to run the IDLE command, the
+%%         `cmd' list may contain
+%%         `[{cmd, {login, ...}}, {cmd, {select, ...}}, {cmd, idle}]'.
+%%     </dd>
+%%
+%%   <dt>`{init_callback, fun(() -> ok)}'</dt>
+%%     <dd>This function will be called during the IMAP client's `init'. It is useful
+%%         for more complex registration, e.g. using `gproc'.
+%%     </dd>
+%%
+%%   <dt>`{post_init_callback, fun(() -> ok)}'</dt>
+%%     <dd>This function will be called after `init', and after all commands
+%%         specified by the `cmds' option have successfully completed.
+%%     </dd>
+%% </dl>
 -spec start_link(connspec(), [opt()]) ->
     {ok, pid()} | _.
 start_link(ConnSpec, Opts) ->
@@ -271,7 +297,7 @@ call(Server, Cmd, Opts, Timeout) ->
 recv() ->
     recv(?CALL_TIMEOUT).
 
-%% @doc Receive response until completion message.
+%% @doc Receive responses until receiving an IMAP completion message.
 %%
 %% Used by call.
 
@@ -346,7 +372,6 @@ init({{SocketType, Host, Port}, Opts}) ->
 init({{SocketType, Host, Port, SocketOpts}, Opts}) ->
     init({{SocketType, Host, Port, SocketOpts, 5000}, Opts});
 init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
-    %% This lil bit of overengineering is so I can use gproc to reg the process
     case proplists:get_value(cmds, Opts) of
         undefined ->
             cmds_complete(self());
@@ -440,6 +465,7 @@ terminate(Reason, _State) ->
 %% Internal functions
 %%==============================================================================
 
+%% @private
 %% @doc Casts a lifecycle cmds completion msg to the IMAP server.
 -spec cmds_complete(pid()) ->
     ok.
@@ -447,6 +473,7 @@ cmds_complete(Imap) ->
     gen_server:cast(Imap, {lifecycle, {cmds, complete}}).
 
 
+%% @private
 %% @doc Call the list of commands in a separate process. Used in startup.
 -spec cmds_call(pid(), [cmd()]) ->
     pid().
@@ -466,6 +493,7 @@ cmds_call(Imap, Cmds) ->
                end).
 
 
+%% @private
 %% @doc Returns a dispatch function for sending messages to the provided pid.
 -spec dispatch_to_ref(pid() | port() | atom()) ->
     fun((response()) -> ok).
@@ -476,6 +504,7 @@ dispatch_to_ref(Ref) ->
     end.
 
 
+%% @private
 %% @doc Churn the buffer by parsing and dispatching responses.
 -spec churn_buffer(#state{}) ->
     #state{}.
@@ -625,7 +654,7 @@ seqset_to_list(Item) ->
 
 
 %% @private
-%% @doc intersperses the separator between list elements
+%% @doc Intersperses the separator between list elements.
 -spec intersperse(Sep, [Sep | A]) ->
     [A] when Sep :: _, A :: _.
 intersperse(_, []) ->
@@ -637,7 +666,7 @@ intersperse(Sep, [X | Xs]) ->
 
 
 %% @private
-%% @doc start an app or list of apps
+%% @doc Start an app or list of apps.
 -spec start_app(atom() | [atom()]) ->
     ok.
 start_app([]) ->
@@ -656,6 +685,8 @@ start_app(App) ->
 
 
 %% @private
+%% @doc Clean a fetch response.
+%% @todo Support arbitrary body part requests.
 clean_fetch({'*', [_Id, <<"FETCH">>, Params]}) ->
     clean_fetch(Params, []).
 
@@ -685,6 +716,8 @@ clean_fetch([<<"ENVELOPE">>,
                 {inreplyto, clean_addresses(InReplyTo)},
                 {messageid, MessageId}],
     clean_fetch(Rest, [{envelope, Envelope} | Acc]);
+clean_fetch([<<"BODY">>, '[', ']', {string, Body} | Rest], Acc) ->
+    clean_fetch(Rest, [{body, Body} | Acc]);
 clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
     clean_fetch(Rest, [{body, clean_body(Body)} | Acc]).
 
@@ -693,6 +726,7 @@ clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
 %% @doc Clean the provided body.
 %% @todo this typing is worthless -- actually sit down and define the types
 %% @todo currently doesn't support multipart params
+
 -spec clean_body(_) ->
     [_].
 clean_body(Body) ->
@@ -781,7 +815,7 @@ decode_line({Data, TokenizeState}, {TokenBuffer, ParseAcc}) ->
 
 
 %% @private
-%% @doc tokenize the imap data
+%% @doc Tokenize the imap data.
 -spec tokenize(binary()) ->
     {[token()], binary(), tokenize_state()}.
 tokenize(Data) ->
@@ -862,6 +896,23 @@ pop_token(<<C, Rest/binary>>, none) when C >= 35, C < 123 ->
     pop_token(Rest, {atom, <<C>>});
 pop_token(<<C, Rest/binary>>, {atom, AtomAcc}) when C >= 35, C < 123 ->
     pop_token(Rest, {atom, <<AtomAcc/binary, C>>});
+
+%% Literal Strings
+pop_token(<<${, Rest/binary>>, none) ->
+    pop_token(Rest, {literal, <<>>});
+pop_token(<<$}, $\r, $\n, Rest/binary>>, {literal, ByteAcc}) ->
+    pop_token(Rest, {literal, binary_to_integer(ByteAcc), <<>>});
+pop_token(<<D, Rest/binary>>, {literal, ByteAcc}) when D >= 48, D < 58 ->
+    pop_token(Rest, {literal, <<ByteAcc/binary, D>>});
+pop_token(Binary, {literal, Bytes, LiteralAcc}) when is_integer(Bytes) ->
+    case Binary of
+	<<Literal:Bytes/binary, Rest/binary>> ->
+	    {{string, <<LiteralAcc/binary, Literal/binary>>}, Rest, none};
+	_ ->
+	    %% If the binary is too short, accumulate it in the state
+	    pop_token(<<>>, {literal, Bytes - size(Binary),
+			     <<LiteralAcc/binary, Binary/binary>>})
+    end;
 
 %% Quoted Strings
 pop_token(<<$", Rest/binary>>, none) ->

@@ -126,7 +126,8 @@ seqset_to_list_assertions() ->
 pop_token_test_() ->
     [pop_token_atoms(),
      pop_token_numbers(),
-     pop_token_quoted()].
+     pop_token_quoted(),
+     pop_token_literal()].
 
 pop_token_atoms() ->
     [?_assertEqual({<<"atom">>, <<" ">>, none}, imap:pop_token(<<"atom ">>)),
@@ -140,6 +141,14 @@ pop_token_quoted() ->
     [?_assertEqual({{string, <<"quoted">>}, <<>>, none},
                    imap:pop_token(<<"\"quoted\"">>))].
 
+pop_token_literal() ->
+    [
+     ?_assertEqual({{string, <<"literal">>}, <<>>, none},
+		   imap:pop_token(<<"{7}\r\nliteral">>)),
+     ?_assertEqual({{string, <<"literal">>}, <<"rest">>, none},
+		   imap:pop_token(<<"{7}\r\nliteralrest">>)),
+     ?_assertEqual({none, <<>>, {literal, 3, <<"literal">>}},
+		   imap:pop_token(<<"{10}\r\nliteral">>))].
 
 tokenize_test_() ->
     [tokenize_terms()].

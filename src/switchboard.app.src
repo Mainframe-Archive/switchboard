@@ -11,6 +11,7 @@
                   stdlib,
                   inets,
                   gproc,
+		  cowboy,
                   eunit
                  ]},
   {mod, {switchboard_app, []}},

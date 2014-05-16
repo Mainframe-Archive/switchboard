@@ -42,11 +42,22 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
+
 %% ===================================================================
 %% Application callbacks
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
+    %% Start the SPDY listener
+    Dispatch = cowboy_router:compile([{'_',
+				       [{<<"/clients">>, switchboard_sockets, []}]}]),
+    Port = case application:get_env(cowboy_port) of
+	       undefined     -> 8081;
+	       {ok, EnvPort} -> EnvPort
+	   end,
+    {ok, _}  = cowboy:start_http(switchboard_cowboy, 100,
+				 [{port, Port}],
+				 [{env, [{dispatch, Dispatch}]}]),
     switchboard_sup:start_link().
 
 stop(_State) ->
