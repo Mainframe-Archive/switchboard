@@ -207,7 +207,7 @@ update_uid_internal(#state{account=Account,
 %% @doc Helper function to get the fetch command's result's UID.
 get_fetch_uid([]) ->
     none;
-get_fetch_uid([{'*', [BinUid, <<"FETCH">>, [<<"UID">>, BinUid]]} | _]) ->
+get_fetch_uid([{'*', [_, <<"FETCH">>, [<<"UID">>, BinUid]]} | _]) ->
     BinUid;
 get_fetch_uid([_ | Rest]) ->
     get_fetch_uid(Rest).
