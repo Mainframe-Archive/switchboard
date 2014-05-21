@@ -32,7 +32,8 @@
 %% @end
 %%------------------------------------------------------------------------------
 
-%% @doc This module provides the main user interface to Switchboard.
+
+%% @doc This module provides the main interface to Switchboard.
 
 -module(switchboard).
 

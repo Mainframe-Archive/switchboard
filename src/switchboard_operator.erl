@@ -32,6 +32,7 @@
 %% @end
 %%------------------------------------------------------------------------------
 
+%% @private
 %% @doc An operator process is paired with a single IMAP `idler' for
 %% each mailbox to be monitored. The idler sends its low-level IMAP
 %% idle messages to the operator, which checks whether a new email has

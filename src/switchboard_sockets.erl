@@ -33,22 +33,67 @@
 %% @end
 %%------------------------------------------------------------------------------
 
-%% @doc Worker/client
-%% <a href="http://tools.ietf.org/html/rfc6455">websocket</a> API. This
-%% provides an interface for external clients to connect to and use
-%% some of the Switchboard application's functionality.
+%% @doc Worker/client websocket API. This provides an interface for
+%% external clients to connect to and use some of the Switchboard
+%% application's functionality.
 %%
-%% <h3>Application Protocol</h3>
+%% By default, the websocket's path is at `/clients', and the webserver
+%% is listening on port `8081'.
 %%
-%% Commands and responses are in <a href="www.json.org">JSON</a>. Each
-%% command will receive a single response.
+%% <h3>Switchboard Commands and Responses</h3>
 %%
-%% There are two types of responses:
-%% <ul>
-%%   <li>Resp
+%% Commands and responses are in <a target="_parent"
+%% href="http://www.json.org">JSON</a>. Each response object has a
+%% type key which indicates the type of response: `cmd' if it is
+%% solicited in direct response to a command, and `new' if it is an
+%% unsolicited response notifying the arrival of new email.
 %%
-%% By default, the websocket's path is at `/clients'. On
-%% 
+%% To simplify writing a client, it is recommended that solicited and
+%% unsolicited responses are handled separately. See
+%% thusfresh/spatch-python -- `/spatch/maildispatch.py' for an example
+%% client -- in this implementation solicited and unsolicited
+%% responses are read into separate queues, allowing commands to
+%% monitor for their response without blocking handling of
+%% unsolicited messages.
+%%
+%% Commands:
+%%
+%% <dl>
+%%  <dt><b>Idle:</b> `{cmd: "idle"}'</dt>
+%%
+%%    <dd>
+%%      Response: `{type: "cmd", idle: "ok"}'
+%%
+%%      If successful, the server will send all idle messages,
+%%      i.e. new emails, to the client. These unsolicited messages
+%%      take the form of {type: "new", item: ..., account: "Account",
+%%      mailbox: "Mailbox"}. This command must be issued for the
+%%      client to receive notifications of new emails.
+%%    </dd>
+%%
+%%  <dt><b>Select:</b> `{cmd: "select", account: Account, mailbox: Mailbox}'</dt>
+%%
+%%    <dd>
+%%      Response: `{type: "cmd", select: Mailbox}'
+%%
+%%      Selects the mailbox for the given account.
+%%    </dd>
+%%
+%%  <dt><b>Fetch:</b>
+%%    `{cmd: "fetch", account: Account, seqset: SeqSet, items: [Items]}'
+%%  </dt>
+%%
+%%    <dd>
+%%      Response: `{type: "cmd", fetch: ..., ...}'
+%%
+%%      todo -- add mailbox option to automatically select
+%%      todo -- document seqset and items
+%%
+%%      Fetches emails for the given account. The content of the
+%%      response depends on what items are specified.
+%%   </dd>
+%% </dl>
+%%
 %%
 %% @todo Add authorization.
 %% @todo Switch from json?
@@ -112,6 +157,7 @@ websocket_handle(Data, Req, State) ->
     {ok, Req, State}.
 
 
+%% @private
 websocket_info({new, {Account, Mailbox}, Item}, Req, State) ->
     reply(response(new, [{item, Item}, {account, Account}, {mailbox, Mailbox}]),
           Req, State);
@@ -120,6 +166,7 @@ websocket_info(Info, Req, State) ->
     {ok, Req, State}.
 
 
+%% @private
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
@@ -128,6 +175,7 @@ websocket_terminate(_Reason, _Req, _State) ->
 %% Internal functions
 %%==============================================================================
 
+%% @private
 %% @doc handle the given Cmd and Payload
 %% @todo -- fill in the connect command to actually connect a new account
 handle(<<"connect">>, undefined, _Payload, Req, State) ->
@@ -202,6 +250,7 @@ reply(Msg, Req, State) ->
 response(Info) ->
     response(response, Info).
 
+%% @private
 -spec response(ok | error, atom() | binary()) ->
     [proplist:property()].
 response(Type, Info) ->

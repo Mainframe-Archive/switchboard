@@ -1,32 +1,69 @@
 @author Thomas Moulia <jtmoulia@pocketknife.io>
 @copyright Copyright (c) 2014, ThusFresh, Inc.
 @title Switchboard
-@doc Switchboard is a <a href="http://spatch.co/">Spatch</a> product.
 
-Switchboard provides high-level tools for managing multiple IMAP clients
-and tying in workers.
+@doc Switchboard is a <a targe="_parent"
+href="http://spatch.co/">Spatch</a> product.
 
-Please see the readme.markdown for more technical details (TODO -- move
-the good stuff from the readme into here).
+Switchboard provides high-level tools for managing IMAP clients across
+multiple email accounts and providers, and an API allowing workers to
+process emails as they arrive. It handles the boilerplate of IMAP
+connection management and new email monitoring so that you can focus
+on innovating around email.
 
+<h3>Case Study: Push Notifications</h3>
 
-<h3>Example: Push Notifications</h3>
+Switchboard's first role was sending new email push notifications to
+the <a target="_parent" href="http://spatch.co">Spatch iOS
+app</a>. Due to mobile process backgrounding restrictions and battery
+abuse, it's difficult to monitor for new emails client-side. Instead,
+the Spatch app securely posts users' OAuth tokens to a server running
+Switchboard, which begins to monitor the accounts for incoming
+emails. When a new email arrives, Switchboard notifies a subscribed
+worker, which then sends down a push notification to the app.
 
-A straightforward use case is new email push notifications for
-mobile email applications. Due to backgrounding restrictions and
-battery abuse, it's difficult to monitor for new emails client-side.
-Instead, you can add the accounts to Switchboard on the server-side.
-A worker subscribed to Switchboard's new email notifications
-can then send push notifications down to the client.
+In this case, Switchboard handled creating the IMAP connections,
+keeping tabs on new emails coming down, and giving the worker
+the data that it needed to send down a nicely formatted push
+notification.
 
+Check back soon for the push worker!
+
+<h3>Workers</h3>
+
+See <a href="switchboard_sockets.html">switchboard_sockets</a> for
+documentation and tips on interfacing with Switchboard through
+the client API.
 
 <h3>Security</h3>
 
-Emails are highly sensitive, and Switchboard is only as secure as the
-server which it is on. Beyond personal use, great care should be taken
-to ensure that both Switchboard and its environment are secure.
+It goes without saying that emails are highly sensitive.  Switchboard
+is only as secure as the server which it is on. Beyond personal use,
+great care should be taken to ensure that both Switchboard and its
+environment are secure.
 
 In addition to plain auth, Switchboard's IMAP client supports <a
+target="_parent"
 href="https://developers.google.com/gmail/xoauth2_protocol">XOAUTH2</a>.
 To keep your user's credentials safe, use XOAUTH2 or a similar
 solution whenever possible.
+
+<h3>Switchboard isn't IMAP</h3>
+
+While the Switchboard API provides some IMAP like functionality, it is
+specifically intended to help with real time email processing.  IMAP
+is a sharp, if sometimes difficult, tool and will remain preferable for
+general programmatic email tasks.
+
+<h3>IMAP Connections</h3>
+
+For each account, one active IMAP connection is created, plus one IMAP
+connection for each mailbox to be monitored. This separation of
+responsibilites across IMAP connections allows for simpler management
+of the IMAP connections, thought at the cost of <a target="_parent"
+href="https://support.google.com/mail/answer/97150?hl=en">using
+multiple IMAP connections</a>.
+
+<h3>For Switchboard Developers</h3>
+
+See `readme.md'

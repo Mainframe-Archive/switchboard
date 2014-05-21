@@ -1,4 +1,3 @@
-%% -*- mode: erlang -*-
 %%------------------------------------------------------------------------------
 %% @author Thomas Moulia <jtmoulia@pocketknife.io>
 %%

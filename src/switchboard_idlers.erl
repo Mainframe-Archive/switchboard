@@ -32,6 +32,7 @@
 %% @end
 %%------------------------------------------------------------------------------
 
+%% @private
 %% @doc `simple_one_for_one supervisor' for imap idling processes.
 
 

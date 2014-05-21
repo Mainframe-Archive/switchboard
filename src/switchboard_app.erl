@@ -32,6 +32,7 @@
 %% @end
 %%------------------------------------------------------------------------------
 
+%% @private
 %% @doc This module implements the application behavior and starts the
 %% top level switchboard supervisor.
 

@@ -32,6 +32,7 @@
 %% @end
 %%------------------------------------------------------------------------------
 
+%% @private
 %% @doc Supervisor for an idling IMAP process and the `imap_operator'.
 
 

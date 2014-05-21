@@ -32,6 +32,7 @@
 %% @end
 %%------------------------------------------------------------------------------
 
+%% @private
 %% @doc Top level supervisor for the Switchboard application.
 
 

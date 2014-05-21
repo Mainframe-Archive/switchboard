@@ -42,7 +42,7 @@
 %% commands which are executed in order in a separately spawned thread
 %%
 %% the post_init_callback opt is a function that is run once all cmds
-%% have been completed
+%% have been completed.
 %%
 %% @reference See <a href="http://tools.ietf.org/html/rfc3501">RFC 3501</a>.
 

@@ -1,4 +1,4 @@
-# switchboard
+# Switchboard
 
 This application provides an API for interacting with IMAP servers
 across multiple accounts.
@@ -9,7 +9,7 @@ responsibilites across IMAP connections allows for vastly simpler
 management of the IMAP connections at the cost of multiple IMAP
 connections. My experience has been that it's worth it.
 
-`switchboard` uses a custom IMAP module, located in
+`Switchboard`'s uses a custom IMAP module, located in
 `src/imap.erl`. Its type specs indicate what commands it currently
 supports.
 
