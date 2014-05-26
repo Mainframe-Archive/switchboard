@@ -59,7 +59,8 @@
          call/2, call/3, call/4,
          recv/0, recv/1,
          clean/1,
-         auth_to_username/1]).
+         auth_to_username/1,
+         auth_to_props/1]).
 
 
 %% Callback exports
@@ -358,6 +359,28 @@ auth_to_username({plain, Username, _}) ->
     Username;
 auth_to_username({xoauth2, Account}) ->
     Account.
+
+
+%% @doc Returns the auth as a jsx:encodable proplist.
+-spec auth_to_props(auth()) ->
+    [proplists:property()].
+auth_to_props({plain, Username, Password}) ->
+    [{<<"type">>, <<"plain">>},
+     {<<"username">>, Username},
+     {<<"password">>, Password}];
+auth_to_props({xoauth2, Username, Token}) ->
+    [{<<"type">>, <<"xoauth2">>},
+     {<<"username">>, Username},
+     {<<"token">>, case Token of
+                       AccessToken when is_binary(Token) ->
+                           [{<<"type">>, <<"access">>},
+                            {<<"token">>, AccessToken}];
+                       {RefreshToken, RefreshUrl} ->
+                           [{<<"type">>, <<"refresh">>},
+                            {<<"token">>, RefreshToken},
+                            {<<"url">>, RefreshUrl}]
+                   end
+     }].
 
 
 %%==============================================================================

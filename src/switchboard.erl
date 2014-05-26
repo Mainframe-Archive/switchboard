@@ -43,7 +43,7 @@
          key_for/2,
          register_callback/2,
          where/2,
-         which/0,
+         accounts/0,
          subscribe/1,
          unsubscribe/1,
          publish/2]).
@@ -186,9 +186,9 @@ publish(new, Msg) ->
 
 %% @doc Returns the list of accounts currently being managed by Switchboard.
 
--spec which() ->
+-spec accounts() ->
     [binary()].
-which() ->
+accounts() ->
     Key = {switchboard, {account, '$1'}},
     GProcKey = {'_', '_', Key},
     MatchHead = {GProcKey, '_', '_'},

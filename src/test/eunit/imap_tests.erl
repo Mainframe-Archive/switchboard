@@ -198,6 +198,32 @@ decode_line_default() ->
                    imap:decode_line(<<"1 2 3\r\n">>))].
 
 
+auth_to_test_() ->
+    [auth_to_props()].
+
+auth_to_props() ->
+    Username = <<"test_username">>,
+    Password = <<"test_password">>,
+    AccessToken = <<"access_token">>,
+    RefreshToken = <<"refresh_token">>,
+    RefreshUrl = <<"refresh_url">>,
+    [?_assertEqual([{<<"type">>, <<"plain">>},
+                    {<<"username">>, Username},
+                    {<<"password">>, Password}],
+                   imap:auth_to_props({plain, Username, Password})),
+     ?_assertEqual([{<<"type">>, <<"xoauth2">>},
+                    {<<"username">>, Username},
+                    {<<"token">>, [{<<"type">>, <<"access">>},
+                                   {<<"token">>, AccessToken}]}],
+                   imap:auth_to_props({xoauth2, Username, AccessToken})),
+     ?_assertEqual([{<<"type">>, <<"xoauth2">>},
+                    {<<"username">>, Username},
+                    {<<"token">>, [{<<"type">>, <<"refresh">>},
+                                   {<<"token">>, RefreshToken},
+                                   {<<"url">>, RefreshUrl}]}],
+                   imap:auth_to_props({xoauth2, Username,
+                                       {RefreshToken, RefreshUrl}}))].
+
 %%==============================================================================
 %% Live tests [dispatchonme@gmail.com]
 %%==============================================================================

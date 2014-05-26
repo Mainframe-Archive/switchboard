@@ -23,7 +23,7 @@ add_dispatch() ->
 dispatch() ->
     %{?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH}.
     {?DISPATCH_CONN_SPEC, {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}}.
-    
+
 
 
 %% @private Run the suite of tests.
@@ -34,7 +34,7 @@ suite_test_() ->
       fun() -> add_dispatch(), ?DISPATCH end,
       fun(Account) -> ok = switchboard:stop(Account) end,
       [fun where_assertions/1,
-       fun which_assertions/1,
+       fun accounts_assertions/1,
        fun query_assertions/1]}].
 
 
@@ -67,8 +67,8 @@ where_assertions(Account) ->
 
 
 %% @private
-which_assertions(Account) ->
-    [?_assertEqual(switchboard:which(), [Account])].
+accounts_assertions(Account) ->
+    [?_assertEqual(switchboard:accounts(), [Account])].
 
 
 %% @private test that the imap server can be queried

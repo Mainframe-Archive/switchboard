@@ -96,7 +96,6 @@
 %%
 %%
 %% @todo Add authorization.
-%% @todo Switch from json?
 
 
 -module(switchboard_sockets).
