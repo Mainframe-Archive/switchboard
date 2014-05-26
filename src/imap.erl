@@ -357,8 +357,8 @@ clean({'OK',[<<"Success">>]}) ->
     binary().
 auth_to_username({plain, Username, _}) ->
     Username;
-auth_to_username({xoauth2, Account}) ->
-    Account.
+auth_to_username({xoauth2, Username, _}) ->
+    Username.
 
 
 %% @doc Returns the auth as a jsx:encodable proplist.

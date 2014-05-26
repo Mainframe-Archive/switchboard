@@ -28,7 +28,3 @@ the application, and you can start an erlang shell and load up the
 application with `make console`.
 
 Currently there is no `relx.config` to build a release.
-
-## Usage
-
-TODO
