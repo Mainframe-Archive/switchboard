@@ -2,7 +2,8 @@
 
 Getting started with...
 
-- [the core application](#core) - how to get hacking with the core application
+- [the core application](#markdown-header-switchboard-core)
+- [the client protocol](#markdown-header-switchboard-client-protocol)
 
 ## Switchboard Core<a name="core"></a>
 
@@ -61,7 +62,7 @@ TODO mechanism for running all tests -- common_test?
 Tests for a module are automatically run by `reloader.erl` when a file
 is reloaded (credit for `reloader.erl` goes to `mochi/mochiweb`).
 
-## Switchboard Client Protocol<a name="client"></a>
+## Switchboard Client Protocol
 
 This section is for people who want to write a Switchboard client, or
 just understand more about how the Swithcboard Protocol works.
