@@ -55,6 +55,7 @@
 
 %% @private
 init({tcp, http}, _Req, _Opts) ->
+    lager:error("Upgrading Protocol"),
     {upgrade, protocol, cowboy_websocket}.
 
 

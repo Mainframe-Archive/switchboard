@@ -232,7 +232,7 @@ pubsub_key_for(Type) ->
     {p, l, {switchboard, Type}}.
 
 
-%% @private 
+%% @private
 %% @doc Start an app or list of apps.
 -spec start_app(atom() | [atom()]) ->
     ok.

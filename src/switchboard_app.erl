@@ -49,16 +49,17 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    %% Start the SPDY listener
+    lager:info("WTF"),
     Dispatch = cowboy_router:compile([{'_',
-				       [{<<"/clients">>, switchboard_sockets, []}]}]),
+                                       [{<<"/sockets">>, switchboard_sockets, []}],
+                                       [{<<"/clients">>, switchboard_jmap, []}]}]),
     Port = case application:get_env(cowboy_port) of
-	       undefined     -> 8081;
-	       {ok, EnvPort} -> EnvPort
-	   end,
+               undefined     -> 8080;
+               {ok, EnvPort} -> EnvPort
+           end,
     {ok, _}  = cowboy:start_http(switchboard_cowboy, 100,
-				 [{port, Port}],
-				 [{env, [{dispatch, Dispatch}]}]),
+                                 [{port, Port}],
+                                 [{env, [{dispatch, Dispatch}]}]),
     switchboard_sup:start_link().
 
 stop(_State) ->

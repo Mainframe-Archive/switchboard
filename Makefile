@@ -13,10 +13,11 @@ endif
 DEPS            = lager gproc cowboy jsx
 dep_lager	= https://github.com/basho/lager.git 2.0.3
 dep_gproc	= https://github.com/uwiger/gproc 0.3
-dep_cowboy	= pkg://cowboy 0.9.0
+dep_cowboy	= https://github.com/extend/cowboy 0.9.0
 dep_jsx		= https://github.com/talentdeficit/jsx v1.4.5
 
 include erlang.mk
 
-console:
-	erl -pa ebin -pa deps/*/ebin -s lager -s switchboard
+serveclient: PORT = 8001
+serveclient:
+	(cd client && python -m SimpleHTTPServer $(PORT))

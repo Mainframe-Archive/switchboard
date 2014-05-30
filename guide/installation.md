@@ -1,15 +1,19 @@
 # Installation
 
-## Impatient? Standalone
+## Impatient? On OS X? Install from binary tarball.
 
 To quickly get Switchboard up and running on Mac OS X, you can use a prebuilt
-release. Download the release.
+release. If you want to do a quick install (I recommend verifying the contents
+of the URL):
 
-TODO provide full flow
+    curl URL | tar -xz && ./switchboard/_rel/bin/switchboard start
 
-The release includes an echo worker.
+TODO md5
 
-TODO create mapping
+Because you won't be building the application, the client section of
+[getting started](getting-started.md) will probably be most interesting
+to you. Check out the Example Client section for directions on how to
+connect a client.
 
 
 ## From Source
