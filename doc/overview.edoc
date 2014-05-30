@@ -64,6 +64,6 @@ of the IMAP connections, thought at the cost of <a target="_parent"
 href="https://support.google.com/mail/answer/97150?hl=en">using
 multiple IMAP connections</a>.
 
-<h3>For Switchboard Developers</h3>
-
-See `readme.md'
+Switchboard uses a custom IMAP module, located in
+`src/imap.erl`. Its type specs indicate what commands it currently
+supports.

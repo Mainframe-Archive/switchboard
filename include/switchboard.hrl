@@ -32,7 +32,10 @@
 %% @end
 %%------------------------------------------------------------------------------
 
+-ifndef(TEST).
 -define(TEST, true).
+-endif.
+
 -define(LIVE_TEST, true).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -41,7 +44,7 @@
 -define(DISPATCH, <<"mail.dispatch.test@gmail.com">>).
 -define(DISPATCH_MAILBOX, <<"INBOX">>).
 -define(DISPATCH_CONN_SPEC, {ssl, <<"imap.gmail.com">>, 993}).
--define(DISPATCH_AUTH, {plain, ?DISPATCH, <<"i>V99JuMVEs">>}).
+-define(DISPATCH_AUTH, {plain, ?DISPATCH, <<"i>V99JuMVEs;">>}).
 -endif.
 
 -define(DEBUG, true).

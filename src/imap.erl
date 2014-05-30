@@ -59,6 +59,7 @@
          call/2, call/3, call/4,
          recv/0, recv/1,
          clean/1,
+         clean_list/1,
          auth_to_username/1,
          auth_to_props/1]).
 
@@ -134,7 +135,8 @@
 
 %% cmd() specifies a valid command that can be issued via call or cast
 -type cmd() :: {login, auth()}
-             | list
+             | list |  {list, binary(), binary()}
+             | {status, mailbox()} | {status, mailbox(), [binary()]}
              | {examine, mailbox()}
              | {select, mailbox()}
              | {fetch, seqset()} | {fetch, seqset(), [binary()]}
@@ -285,11 +287,16 @@ call(Server, Cmd, Opts) ->
 -spec call(pid(), cmd(), [cmd_opt()], integer()) ->
     {ok, _} | {'+', _} | {error, _}.
 call(Server, Cmd, Opts, Timeout) ->
-    gen_server:cast(Server, {cmd, Cmd, Opts}),
-    Ref = monitor(process, Server),
-    Responses = recv(Timeout, Ref),
-    true = demonitor(Ref),
-    Responses.
+    case is_process_alive(Server) of
+        true ->
+            gen_server:cast(Server, {cmd, Cmd, Opts}),
+            Ref = monitor(process, Server),
+            Responses = recv(Timeout, Ref),
+            true = demonitor(Ref),
+            Responses;
+        false ->
+            {error, noprocess}
+    end.
 
 
 %% @equiv recv(5000)
@@ -315,7 +322,7 @@ recv(Timeout, MonitorRef) ->
 
 %% @private Helper for receiving responses.
 -spec recv(integer(), reference() | none, _) ->
-    {ok, _} | {'+', _} | {error, _}.
+    {ok, Responses} | {'+', _} | {error, Responses} when Responses :: {_, [_]}.
 recv(Timeout, MonitorRef, Responses) ->
     receive
         {'+', Response} ->
@@ -323,13 +330,13 @@ recv(Timeout, MonitorRef, Responses) ->
         {'*', Response} ->
             recv(Timeout, MonitorRef, [{'*', Response} | Responses]);
         {'OK', Response} ->
-            {ok, lists:reverse([{'OK', Response} | Responses])};
+            {ok, {{'OK', Response}, lists:reverse(Responses)}};
         {'NO', Response} ->
-            {error, lists:reverse([{'NO', Response} | Responses])};
+            {error, {{'NO', Response}, lists:reverse(Responses)}};
         {'BAD', Response} ->
-            {error, lists:reverse([{'BAD', Response} | Responses])};
-        {'DOWN', MonitorRef, _, _, Reason} ->
-            {error, {down, Reason, lists:reverse(Responses)}}
+            {error, {{'BAD', Response}, lists:reverse(Responses)}};
+        {'DOWN', MonitorRef, process, _, Reason} ->
+            {error, {{down, Reason}, lists:reverse(Responses)}}
         after
             Timeout ->
               {error, timeout}
@@ -337,18 +344,41 @@ recv(Timeout, MonitorRef, Responses) ->
 
 
 %% @doc Clean a response to be JSON serializable via jsx. In other words,
-%% use proplists.
-
+%% proplists! This only works on a single resonse; map it across a list of
+%% responses.
+%%
+%% NB: Not implemented for all responses -- see function matches.
+-spec clean(_) ->
+    {atom(), _}.
 clean({'*', [_, <<"FETCH">>, _]} = Fetch) ->
-    clean_fetch(Fetch);
-clean({'*', [<<"FLAGS">>, Flags]}) ->
+    clean_props(Fetch);
+clean({'*', [<<"FLAGS">> | Flags]}) ->
     {flags, Flags};
 clean({'*', [Exists, <<"EXISTS">>]}) ->
     {exists, Exists};
 clean({'*', [Recent, <<"RECENT">>]}) ->
     {recent, Recent};
-clean({'OK',[<<"Success">>]}) ->
-    {ok, success}.
+clean({'*', [<<"OK">>, '[', <<"PERMANENTFLAGS">>, PermanentFlags, ']' | _]}) ->
+    {permanent_flags, PermanentFlags};
+clean({'*', [<<"OK">>, '[', <<"UIDVALIDITY">>, UIDValidity, ']' | _]}) ->
+    {uidvalidity, UIDValidity};
+clean({'*', [<<"OK">>, '[', <<"UIDNEXT">>, UIDNext, ']' | _]}) ->
+    {uidnext, UIDNext};
+clean({'*', [<<"OK">>, '[', <<"HIGHESTMODSEQ">>, HighestModSeq, ']' | _]}) ->
+    {highest_mod_seq, HighestModSeq};
+clean({'*', [<<"LIST">>, NameAttrs, {string, Delim}, {string, Name}]}) ->
+    {list, [{name_attrs, NameAttrs},
+            {delimiter, Delim},
+            {name, Name}]}.
+
+%% @doc Clean list command responses, returning an easier to deal with list.
+-spec clean_list({ok, {_, [_]}}) ->
+    {error, _}.
+clean_list({error, Reason}) ->
+    {error, Reason};
+clean_list({ok, {_, Resps}}) ->
+    %% XXX - this forces all responses to be `{list, _}' -- too stringent?
+    {ok, [clean(Resp) || {list, Resp} <- Resps]}.
 
 
 %% @doc Returns the username for the given authorization. This is used
@@ -626,12 +656,17 @@ cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
                              "">>),
     [<<"AUTHENTICATE">>, <<"XOAUTH2">>, Encoded];
 cmd_to_list(list) ->
-    [<<"LIST">>];
+    [<<"LIST">>, <<"">>, <<"%">>];
+cmd_to_list({list, Reference, Match}) ->
+    [<<"LIST">>, Reference, Match];
+cmd_to_list({status, Mailbox}) ->
+    [<<"STATUS">>, Mailbox];
+cmd_to_list({status, Mailbox, Items}) ->
+    [<<"STATUS">>, Mailbox, Items];
 cmd_to_list({select, Mailbox}) ->
     [<<"SELECT">>, Mailbox];
 cmd_to_list({examine, Mailbox}) ->
     [<<"EXAMINE">>, Mailbox];
-
 cmd_to_list({uid, {fetch, SeqSet}}) ->
     [<<"UID">> | cmd_to_list({fetch, SeqSet})];
 cmd_to_list({uid, {fetch, SeqSet, Items}}) ->
@@ -708,22 +743,21 @@ start_app(App) ->
 
 
 %% @private
-%% @doc Clean a fetch response.
-%% @todo Support arbitrary body part requests.
-clean_fetch({'*', [_Id, <<"FETCH">>, Params]}) ->
-    clean_fetch(Params, []).
+%% @doc Clean response props.
+clean_props({'*', [_Id, <<"FETCH">>, Params]}) ->
+    clean_props(Params, []).
 
-clean_fetch([], Acc) ->
+clean_props([], Acc) ->
     {fetch, lists:reverse(Acc)};
-clean_fetch([<<"UID">>, Uid | Rest], Acc) ->
-    clean_fetch(Rest, [{uid, Uid} | Acc]);
-clean_fetch([<<"FLAGS">>, Flags | Rest], Acc) ->
-    clean_fetch(Rest, [{flags, Flags} | Acc]);
-clean_fetch([<<"INTERNALDATE">>, {string, InternalDate} | Rest], Acc) ->
-    clean_fetch(Rest, [{internaldate, InternalDate} | Acc]);
-clean_fetch([<<"RFC822.SIZE">>, Rfc822Size | Rest], Acc) ->
-    clean_fetch(Rest, [{rfc822size, Rfc822Size} | Acc]);
-clean_fetch([<<"ENVELOPE">>,
+clean_props([<<"UID">>, Uid | Rest], Acc) ->
+    clean_props(Rest, [{uid, Uid} | Acc]);
+clean_props([<<"FLAGS">>, Flags | Rest], Acc) ->
+    clean_props(Rest, [{flags, Flags} | Acc]);
+clean_props([<<"INTERNALDATE">>, {string, InternalDate} | Rest], Acc) ->
+    clean_props(Rest, [{internaldate, InternalDate} | Acc]);
+clean_props([<<"RFC822.SIZE">>, Rfc822Size | Rest], Acc) ->
+    clean_props(Rest, [{rfc822size, Rfc822Size} | Acc]);
+clean_props([<<"ENVELOPE">>,
              [{string, Date}, {string, Subject},
               From, Sender, ReplyTo, To, Cc, Bcc, InReplyTo,
               {string, MessageId}] | Rest], Acc) ->
@@ -738,11 +772,11 @@ clean_fetch([<<"ENVELOPE">>,
                 {bcc, clean_addresses(Bcc)},
                 {inreplyto, clean_addresses(InReplyTo)},
                 {messageid, MessageId}],
-    clean_fetch(Rest, [{envelope, Envelope} | Acc]);
-clean_fetch([<<"BODY">>, '[', ']', {string, Body} | Rest], Acc) ->
-    clean_fetch(Rest, [{body, Body} | Acc]);
-clean_fetch([<<"BODY">>, Body | Rest], Acc) ->
-    clean_fetch(Rest, [{body, clean_body(Body)} | Acc]).
+    clean_props(Rest, [{envelope, Envelope} | Acc]);
+clean_props([<<"BODY">>, '[', ']', {string, Body} | Rest], Acc) ->
+    clean_props(Rest, [{body, Body} | Acc]);
+clean_props([<<"BODY">>, Body | Rest], Acc) ->
+    clean_props(Rest, [{body, clean_body(Body)} | Acc]).
 
 
 %% @private

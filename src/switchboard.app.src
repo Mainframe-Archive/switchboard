@@ -12,6 +12,8 @@
                   inets,
                   gproc,
 		  cowboy,
+                  jsx,
+                  ssl,
                   eunit
                  ]},
   {mod, {switchboard_app, []}},

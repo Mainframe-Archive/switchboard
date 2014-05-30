@@ -190,13 +190,11 @@ update_uid_internal(#state{account=Account,
     {ok, Uid} = current_uid(Account, Mailbox),
     lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
-            {ok, Emails} = imap:call(switchboard:where(Account, active),
+            {ok, {_, Emails}} = imap:call(switchboard:where(Account, active),
                                      {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
             lists:foreach(
              fun({fetch, Data}) ->
-                     switchboard:publish(new, {new, {Account, Mailbox}, Data});
-                (_) ->
-                     ok
+                     switchboard:publish(new, {new, {Account, Mailbox}, Data})
              end, lists:map(fun imap:clean/1, Emails));
             % lager:info("New Emails: ~p", [Emails]);
        true -> ok
@@ -221,7 +219,7 @@ get_fetch_uid([_ | Rest]) ->
 current_uid(Account, Mailbox) ->
     {Active, _} = gproc:await(switchboard:key_for(Account, active), 5000),
     {ok, _} = imap:call(Active, {select, Mailbox}),
-    {ok, Resps} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
+    {ok, {_, Resps}} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
     BinUid = get_fetch_uid(Resps),
     {ok, if is_integer(BinUid) -> BinUid;
             is_binary(BinUid)  -> binary_to_integer(BinUid)

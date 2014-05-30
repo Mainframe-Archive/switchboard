@@ -65,7 +65,13 @@
                 850,11],
                {string,<<"ALTERNATIVE">>}]).
 
-%% @private start the dispatch user -- useful for testing
+-define(LIST, {'*',[<<"LIST">>,
+                    [<<"\\Noselect">>],
+                    {string,<<"/">>},
+                    {string,<<"/">>}]}).
+
+%% @private
+%% @doc Start the dispatch user -- useful for testing.
 start_dispatch() ->
     {ok, Child} = imap:start({ssl, <<"imap.gmail.com">>, 993}),
     {ok, _} = imap:call(Child, {login, {plain, <<"dispatchonme@gmail.com">>,
@@ -108,7 +114,11 @@ clean_assertions() ->
                             {flags, []},
                             {internaldate, <<"25-Apr-2014 05:16:11 +0000">>},
                             {rfc822size, 3856}]},
-                   imap:clean(?FETCH))].
+                   imap:clean(?FETCH)),
+     ?_assertMatch({list, [{name_attrs,[<<"\\Noselect">>]},
+                           {delimiter,<<"/">>},
+                           {name,<<"/">>}]},
+                   imap:clean(?LIST))].
 
 
 %% Commands
@@ -144,11 +154,11 @@ pop_token_quoted() ->
 pop_token_literal() ->
     [
      ?_assertEqual({{string, <<"literal">>}, <<>>, none},
-		   imap:pop_token(<<"{7}\r\nliteral">>)),
+                   imap:pop_token(<<"{7}\r\nliteral">>)),
      ?_assertEqual({{string, <<"literal">>}, <<"rest">>, none},
-		   imap:pop_token(<<"{7}\r\nliteralrest">>)),
+                   imap:pop_token(<<"{7}\r\nliteralrest">>)),
      ?_assertEqual({none, <<>>, {literal, 3, <<"literal">>}},
-		   imap:pop_token(<<"{10}\r\nliteral">>))].
+                   imap:pop_token(<<"{10}\r\nliteral">>))].
 
 tokenize_test_() ->
     [tokenize_terms()].
@@ -235,7 +245,8 @@ dispatch_live_suite_test_() ->
     {foreach,
      fun dispatch_setup/0,
      fun dispatch_teardown/1,
-     [fun dispatch_select_assertions/1]}.
+     [fun dispatch_select_assertions/1,
+      fun dispatch_list_assertions/1]}.
 
 
 -spec dispatch_setup() ->
@@ -261,5 +272,12 @@ dispatch_teardown({_, Imap}) ->
 
 dispatch_select_assertions({_, Imap}) ->
     [?_assertMatch({ok, _}, imap:call(Imap, {select, <<"INBOX">>}))].
+
+dispatch_list_assertions({_, Imap}) ->
+    ListResp1 = imap:call(Imap, list),
+    {ok, {_, [List1 | _]}} = ListResp1,
+    [?_assertMatch({ok, _}, ListResp1),
+     ?_assertMatch({'*', _}, List1),
+     ?_assertMatch({list, _}, imap:clean(List1))].
 
 -endif.

@@ -43,6 +43,9 @@
          key_for/2,
          register_callback/2,
          where/2,
+         checkout/1,
+         return/2,
+         with_imap/2,
          accounts/0,
          subscribe/1,
          unsubscribe/1,
@@ -147,6 +150,30 @@ register_callback(Account, Type) ->
 %    pid().
 where(Account, Type) ->
     gproc:where(key_for(Account, Type)).
+
+
+%% @todo implement a pool around active connections, checkout the active process
+%% from this.
+checkout(Account) ->
+    {ok, where(Account, active)}.
+
+
+%% @todo return a checked out IMAP connection.
+return(_Account, _IMAP) ->
+    ok.
+
+
+%% @todo rethrow errors instead of eating them?
+with_imap(Account, Fun) ->
+    {ok, IMAP} = checkout(Account),
+    Result = case catch Fun(IMAP) of
+                 {'EXIT', Reason} ->
+                     {error, Reason};
+                 R ->
+                     R
+             end,
+    ok = return(Account, IMAP),
+    Result.
 
 
 %% @doc Subscribe to Switchboard messages using the provided channel.

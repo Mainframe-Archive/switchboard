@@ -34,6 +34,12 @@
 
 %% @private
 %% @doc Top level supervisor for the Switchboard application.
+%% `switchboard_sup' is a `simple_one_for_one' supervisor that watches
+%% `switchboard_account_sup' child supervisors. The
+%% `switchboard_accounts' is the top-level supervisor for a single
+%% account, watching `active_imap', the active imap process,
+%% `switchboard_idlers', a supervisor watching the imap idling
+%% processes.
 
 
 -module(switchboard_sup).

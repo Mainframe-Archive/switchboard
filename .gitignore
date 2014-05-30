@@ -2,8 +2,12 @@
 ebin/
 deps/
 log/
+_rel/
 .imapswitchboard.plt
 erl_crash.dump
+
+.erlang.mk.packages.v1
+relx
 
 # Documentation
 doc/*.html

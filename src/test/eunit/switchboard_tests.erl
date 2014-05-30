@@ -21,8 +21,7 @@ add_dispatch() ->
 
 %% @private Useful for the console
 dispatch() ->
-    %{?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH}.
-    {?DISPATCH_CONN_SPEC, {plain, <<"dispatchonme@gmail.com">>, <<"jives48_cars">>}}.
+    {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH}.
 
 
 
@@ -31,8 +30,15 @@ suite_test_() ->
     [add_stop_assertions(),
      pubsub_assertions(),
      {foreach,
-      fun() -> add_dispatch(), ?DISPATCH end,
-      fun(Account) -> ok = switchboard:stop(Account) end,
+      fun() ->
+              add_dispatch(),
+              gproc:await(switchboard:key_for(?DISPATCH, active), 500),
+              ?DISPATCH end,
+      fun(Account) ->
+              IMAP = switchboard:where(Account, active),
+              ok = switchboard:stop(Account),
+              switchboard_util:await_death(IMAP)
+      end,
       [fun where_assertions/1,
        fun accounts_assertions/1,
        fun query_assertions/1]}].
