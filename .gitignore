@@ -5,6 +5,7 @@ log/
 _rel/
 .imapswitchboard.plt
 erl_crash.dump
+switchboard.tar.gz
 
 .erlang.mk.packages.v1
 relx

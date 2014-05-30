@@ -6,14 +6,17 @@ To quickly get Switchboard up and running on Mac OS X, you can use a prebuilt
 release. If you want to do a quick install (I recommend verifying the contents
 of the URL):
 
-    curl URL | tar -xz && ./switchboard/_rel/bin/switchboard start
+    curl -sL https://www.dropbox.com/s/hyu587h9cazlnc0/switchboard.tar.gz | tar -xz && ./switchboard/bin/switchboard console
 
-TODO md5
+That was supposed to download, unpack, and start the application,
+dumping you at the Erlang console. `switchboard/bin/switchboard` is the
+startup/control script. You can run it without arguments to see its
+many useful commands.
 
 Because you won't be building the application, the client section of
-[getting started](getting-started.md) will probably be most interesting
-to you. Check out the Example Client section for directions on how to
-connect a client.
+[getting started](getting-started.md) will probably be most
+interesting to you. Check out the Switchboard Erlang API or Example
+Client section for directions on how to start fetching emails.
 
 
 ## From Source
@@ -45,4 +48,4 @@ a release, and start it.
 
 Please create an issue if there were any problems!
 
-Next, check out the [getting started pages](getting-started.md) to get you hacking.
+Next up: [Getting Started](getting-started.md).

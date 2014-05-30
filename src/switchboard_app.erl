@@ -49,7 +49,6 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    lager:info("WTF"),
     Dispatch = cowboy_router:compile([{'_',
                                        [{<<"/sockets">>, switchboard_sockets, []}],
                                        [{<<"/clients">>, switchboard_jmap, []}]}]),

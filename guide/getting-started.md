@@ -1,5 +1,6 @@
 # Getting Started
 
+- []
 - [Core Application](#markdown-header-switchboard-core)
 - [Client Protocol](#markdown-header-switchboard-client-protocol)
 
@@ -8,19 +9,51 @@
 This section is for people who want to develop on the core Switchboard
 application.
 
-Switchboard is written in Erlang, and primarily uses Erlang tooling. This
-will familiarize you with how to fit the tooling pieces together to get
-a tight development loop.
-
 Note: through the rest of this section, `./switchboard` will refer
-to the release's control script, located in, `_rel/bin/switchboard`.
+to the release's control script, located in `_rel/bin/switchboard`
+if you're building from source'.
+
+### Switchboard Erlang API
+
+The quickest way to interact with Switchboard is through the application's
+Erlang API. Assuming Switchboard is running, `./switchboard remote_console`
+will attach a remote console to the running application. Here's
+an example session:
+
+
+    %% Subscribe to messages of new emails.
+	true = switchboard:subscribe(new).
+
+    %% List the active accounts. Assuming no one's been here first, there should be none
+    [] = switchboard:accounts().
+
+	%% Add a new account. (XOAUTH2 is also supported)
+	switchboard:add({ssl, <<"imap.gmail.com">>, 993},
+	                {plain, <<"youremail@gmail.com">>, <<"yourpassword">>},
+					[<<"INBOX">>]).
+
+    %% List the now active account.
+    [<<"youremail@gmail.com">>] = switchboard:accounts().
+
+    %% Send yourself an email, wait a minute, then flush the message queue to see it.
+	flush().
+
+    %% Stop the account from being monitored.
+	ok = switchboard:stop(<<"youremail@gmail.com">>).
+
+    %% Unsubscribe from new messages
+	true = switchboard:unsubscribe(new).
+
+
+See `src/switchboard.erl` for more detailed documentation of the
+public interfaces.
 
 ### Finding and Building the Documentation
 
-Documentation of the various core modules is provided as comments
-using [edoc](http://www.erlang.org/doc/apps/edoc/chapter.html). If
-you'd rather have the documentation as html, run `make docs`, and then
-point your browser to `doc/index.html`.
+Documentation of the core modules is provided as in-source comments
+using [edoc](http://www.erlang.org/doc/apps/edoc/chapter.html)
+formatting. If you'd rather have the documentation as html, run `make
+docs`, and then point your browser to `doc/index.html`.
 
 The `switchboard` module provides the public Erlang interface for the
 Switchboard application, and exposes the controls for adding and

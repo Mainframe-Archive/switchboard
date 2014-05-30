@@ -116,7 +116,6 @@ get_last_uid(Oper) ->
 dispatch_fun(Account, Mailbox) ->
     Key = pubsub_key(Account, Mailbox),
     fun(Msg) ->
-            lager:info("Dispatching ~p, [~p]", [{Account, Mailbox}, Msg]),
             gproc:send(Key, {idle, Msg}),
             ok
     end.
@@ -188,7 +187,7 @@ update_uid_internal(#state{account=Account,
                            mailbox=Mailbox,
                            last_uid=LastUid} = State) ->
     {ok, Uid} = current_uid(Account, Mailbox),
-    lager:info("UID: ~p, LastUid: ~p", [Uid, LastUid]),
+    lager:debug("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
             {ok, {_, Emails}} = imap:call(switchboard:where(Account, active),
                                      {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),

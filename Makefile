@@ -18,6 +18,20 @@ dep_jsx		= https://github.com/talentdeficit/jsx v1.4.5
 
 include erlang.mk
 
+S3CMD_CONF	= .s3cmd
+S3CMD		= s3cmd -c $(S3CMD_CONF)
+
 serveclient: PORT = 8001
 serveclient:
 	(cd client && python -m SimpleHTTPServer $(PORT))
+
+
+switchboard.tar.gz: _rel
+	tar -s/_rel/switchboard/ -cvf $@ $<
+
+
+$(S3CMD_CONF):
+	$(S3CMD) --configure
+
+push: switchboard.tar.gz $(S3CMD_CONF)
+	$(S3CMD) push
