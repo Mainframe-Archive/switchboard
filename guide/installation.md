@@ -6,7 +6,7 @@ To quickly get Switchboard up and running on Mac OS X, you can use a prebuilt
 release. If you want to do a quick install (I recommend verifying the contents
 of the URL):
 
-    curl -sL https://www.dropbox.com/s/hyu587h9cazlnc0/switchboard.tar.gz | tar -xz && ./switchboard/bin/switchboard console
+    curl -sL 'https://www.dropbox.com/s/hyu587h9cazlnc0/switchboard.tar.gz' | tar -xz && ./switchboard/bin/switchboard console
 
 That was supposed to download, unpack, and start the application,
 dumping you at the Erlang console. `switchboard/bin/switchboard` is the
