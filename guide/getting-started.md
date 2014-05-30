@@ -22,10 +22,14 @@ using [edoc](http://www.erlang.org/doc/apps/edoc/chapter.html). If
 you'd rather have the documentation as html, run `make docs`, and then
 point your browser to `doc/index.html`.
 
-The `switchboard` provides the public Erlang interface for the
+The `switchboard` module provides the public Erlang interface for the
 Switchboard application, and exposes the controls for adding and
 removing accounts, and subscribing to event channels via
 [`uwiger/gproc`](https://github.com/uwiger/gproc).
+
+`imap` is a partial imap client. Though not yet mature,
+it's written as a single `gen_server` so that it can
+easily be dropped into other projects.
 
 By default, documentation is not created for private functions.
 Please open an issue if this causes any problems.
