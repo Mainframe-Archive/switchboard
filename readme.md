@@ -6,7 +6,10 @@ process emails as they arrive.
 
 ## Documentation
 
-See the [guide](guide/toc.md) for
-[Installation](guide/installation.md) and
-[Getting Started](guide/getting-started.md) instructions, as well as
-other topics.
+See the
+[guide](https://bitbucket.org/thusfresh/imapswitchboard/src/master/guide/toc.md)
+for
+[Installation](https://bitbucket.org/thusfresh/imapswitchboard/src/master/guide/installation.md)
+and
+[Getting Started](https://bitbucket.org/thusfresh/imapswitchboard/src/master/guide/getting-started.md)
+instructions, as well as other topics.
