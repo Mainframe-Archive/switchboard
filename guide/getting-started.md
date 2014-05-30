@@ -1,9 +1,7 @@
 # Getting Started
 
-Getting started with...
-
-- [the core application](#markdown-header-switchboard-core)
-- [the client protocol](#markdown-header-switchboard-client-protocol)
+- [Core Application](#markdown-header-switchboard-core)
+- [Client Protocol](#markdown-header-switchboard-client-protocol)
 
 ## Switchboard Core
 
@@ -78,15 +76,15 @@ At the moment, the Switchboard client protocol is a subset of
 a rationale for using JMAP over HTTP/websockets, the structure
 of a JMAP exchange, the data model, and data types.
 
-TL;DR: a client connects to the server over a websocket.  If
-you're running Switchboard locally the url is
-`ws://127.0.0.1:8000/clients`. Data is encoded in UTF8 JSON.  Clients
+TL;DR: a client connects to the server over a websocket.  If you're
+running Switchboard locally, the url defaults to
+`ws://127.0.0.1:8000/clients`. Data is encoded in UTF8 JSON. Clients
 issue a list of commands to the server in the form form
 `[[${method <string>}, ${args <object>}, ${tag (optional)}], ...]`.
-The server runs the commands in order, generating and returning
-a list of one respsone per command. The responses take the same
-form as the commands. The examples below should make this a
-bit more clear.
+The server runs the commands in order, generating and returning a list
+of one respsone per command. The responses take the same form as the
+commands. The examples below should be a bit more clean than my made
+up pseudocode.
 
 
 - Implemented
@@ -94,6 +92,7 @@ bit more clear.
 	    - No permissions
 - Added
     - `connect`
+
 
 ### `connect`
 
