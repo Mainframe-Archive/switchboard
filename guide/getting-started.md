@@ -1,6 +1,5 @@
 # Getting Started
 
-- []
 - [Core Application](#markdown-header-switchboard-core)
 - [Client Protocol](#markdown-header-switchboard-client-protocol)
 
@@ -24,7 +23,7 @@ an example session:
     %% Subscribe to messages of new emails.
 	true = switchboard:subscribe(new).
 
-    %% List the active accounts. Assuming no one's been here first, there should be none
+    %% List the active accounts. Assuming no one's been here first, there should be none.
     [] = switchboard:accounts().
 
 	%% Add a new account. (XOAUTH2 is also supported)
@@ -41,7 +40,7 @@ an example session:
     %% Stop the account from being monitored.
 	ok = switchboard:stop(<<"youremail@gmail.com">>).
 
-    %% Unsubscribe from new messages
+    %% Unsubscribe from new messages.
 	true = switchboard:unsubscribe(new).
 
 
