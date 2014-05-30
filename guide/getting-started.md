@@ -5,7 +5,7 @@ Getting started with...
 - [the core application](#markdown-header-switchboard-core)
 - [the client protocol](#markdown-header-switchboard-client-protocol)
 
-## Switchboard Core<a name="core"></a>
+## Switchboard Core
 
 This section is for people who want to develop on the core Switchboard
 application.
