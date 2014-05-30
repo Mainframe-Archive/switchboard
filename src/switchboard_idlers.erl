@@ -41,7 +41,8 @@
 
 %% Interface exports
 -export([start_link/3,
-         start_child/2]).
+         start_child/2,
+         stop_child/2]).
 
 %% Callback exports
 -export([init/1]).
@@ -55,7 +56,8 @@
 -spec start_link(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailboxes) ->
-    case supervisor:start_link(?MODULE, {ConnSpec, Auth}) of
+    Key = switchboard:key_for(imap:auth_to_username(Auth), idlers),
+    case supervisor:start_link({via, gproc, Key}, ?MODULE, {ConnSpec, Auth}) of
         {ok, Pid} ->
             lists:foreach(
               fun(M) -> start_child(Pid, M) end, Mailboxes),
@@ -71,6 +73,18 @@ start_link(ConnSpec, Auth, Mailboxes) ->
 start_child(Sup, Mailbox) ->
     supervisor:start_child(Sup, [Mailbox]).
 
+
+%% @doc Stop the child which is monitoring the given mailbox.
+-spec stop_child(imap:account(), imap:mailbox()) ->
+    ok | {error, not_found | simple_one_for_one}.
+stop_child(Account, Mailbox) ->
+    case switchboard:where(Account, {idler_sup, Mailbox}) of
+        undefined ->
+            {error, nomonitor};
+        IdlerSup ->
+            Supervisor = switchboard:where(Account, idlers),
+            supervisor:terminate_child(Supervisor, IdlerSup)
+    end.
 
 %%==============================================================================
 %% Callback exports

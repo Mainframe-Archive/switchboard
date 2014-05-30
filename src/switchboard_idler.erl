@@ -53,7 +53,9 @@
 -spec start_link(imap:connspec(), imap:auth(), imap:mailbox()) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailbox) ->
-    supervisor:start_link(?MODULE, {ConnSpec, Auth, Mailbox}).
+    Username = imap:auth_to_username(Auth),
+    Key = switchboard:key_for(Username, {idler_sup, Mailbox}),
+    supervisor:start_link({via, gproc, Key}, ?MODULE, {ConnSpec, Auth, Mailbox}).
 
 
 %%==============================================================================

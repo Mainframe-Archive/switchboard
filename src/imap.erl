@@ -372,13 +372,22 @@ clean({'*', [<<"LIST">>, NameAttrs, {string, Delim}, {string, Name}]}) ->
             {name, Name}]}.
 
 %% @doc Clean list command responses, returning an easier to deal with list.
+%% NB: this will discard non-`list' responses.
 -spec clean_list({ok, {_, [_]}}) ->
     {error, _}.
 clean_list({error, Reason}) ->
     {error, Reason};
 clean_list({ok, {_, Resps}}) ->
     %% XXX - this forces all responses to be `{list, _}' -- too stringent?
-    {ok, [clean(Resp) || {list, Resp} <- Resps]}.
+    {ok, lists:foldl(
+          fun(Resp, Acc) ->
+                 case clean(Resp) of
+                     {list, Rest} ->
+                         [Rest | Acc];
+                     _ ->
+                         Acc
+                 end
+          end, [], Resps)}.
 
 
 %% @doc Returns the username for the given authorization. This is used

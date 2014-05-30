@@ -27,10 +27,16 @@ var URL = "ws://127.0.0.1:8080/clients";
  * Communication is done using JSON over WebSockets.
  */
 function SwitchboardClient (url, connspec) {
-    // Open a connection to the Switchboard server
+    // Open a connection to the Switchboard server.
     var conn = new WebSocket(url);
+    // Use incrementing tags to uniquely ID cmd/resp pairs.
     var tag = 0;
+    // Open cmd's callbacks are inserted in cmds, keyed by the `tag`.
     var cmds = {};
+
+    /******************
+     * Internal Helpers
+     */
 
     /**
      * `makeCmd` composes the call arguments into a list,
@@ -46,7 +52,7 @@ function SwitchboardClient (url, connspec) {
     }
 
 
-    /**
+    /******************
      * Public Interface
      */
 
@@ -54,15 +60,29 @@ function SwitchboardClient (url, connspec) {
      * `sendCmds` prepares and sends off a list of commands.
      */
     this.sendCmds = function (cmds) {
-	return conn.send(JSON.stringify(cmds))
-    };
+	conn.send(JSON.stringify(cmds));
+	return this;
+    }.bind(this);
+
 
     this.getMailboxes = function (callback) {
 	return this.sendCmds([makeCmd("getMailboxes", [], callback)]);
     }.bind(this);
 
+    this.idle = function(mailboxes, callback) {
+	return this.sendCmds([makeCmd("idle", {list: mailboxes}, callback)]);
+    }.bind(this);
+
+
+    /*********************
+     * Websocket Callbacks
+     */
+
+    /**
+     * On the websocket's `onopen`, send a connect command with the connection
+     * specification.
+     */
     conn.onopen = function() {
-	console.log("Connecting...");
 	this.sendCmds([makeCmd("connect", connspec)])
     }.bind(this);
 
@@ -70,6 +90,13 @@ function SwitchboardClient (url, connspec) {
 	console.log(error);
     }
 
+    /**
+     * On the websocket's `onmessage`, parse the responses.
+     *
+     * If the response is tagged, check for a callback stored
+     * in `cmds`. If present, call the callback with the response
+     * as the only argument.
+     */
     conn.onmessage = function(e) {
 	var responses = JSON.parse(e.data)
 	for (var i = 0; i < responses.length; i++) {
@@ -80,7 +107,7 @@ function SwitchboardClient (url, connspec) {
 		var tag = responses[i][2]
 		if (tag in cmds) {
 		    try {
-			cmds[tag](response);
+			cmds[tag](responses[i]);
 		    }
 		    catch (e) {
 			console.log(e);

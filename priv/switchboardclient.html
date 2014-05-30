@@ -4,9 +4,11 @@
     <title>Switchboard Client</title>
   </head>
   <body>
+    <h4>Try this out in your browser's js console:</h4>
     <pre>
       var client = new SwitchboardClient(URL, ConnSpec);
-      client.getMailboxes();
+      client.getMailboxes(function(resp) { console.log(resp); });
+      client.idle(["INBOX"], function(resp) { console.log("IDLE successful"); })
     </pre>
     <script type="text/javascript" src="/static/js/switchboardclient.js"></script>
   </body>

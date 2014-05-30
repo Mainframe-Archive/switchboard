@@ -48,7 +48,8 @@
 
 -record(state, {connspec = none :: imap:connspec() | none,
                 auth = none :: imap:auth() | none,
-                owner = true :: boolean()}).
+                owner = true :: boolean(),
+                idle_mailboxes = [] :: [binary()]}).
 
 %%==============================================================================
 %% Cowboy Websocket Handler Callbacks
@@ -75,6 +76,12 @@ websocket_handle(Data, Req, State) ->
 
 
 %% @private
+websocket_info({new, {Account, Mailbox}, Item}, Req, State) ->
+    Reply = {<<"newMessage">>,
+             [{item, Item}, {account, Account}, {mailbox, Mailbox}],
+             undefined},
+    lager:info("Received new msg: ~p", [Item]),
+    {reply, {text, encode([Reply])}, Req, State};
 websocket_info(Info, Req, State) ->
     lager:info("Unexpected info: ~p", [Info]),
     {ok, Req, State}.
@@ -164,6 +171,7 @@ erl_to_jmap({Method, Args, ClientID}) ->
 %% @see err/2.
 -spec jmap(#state{}, jmap()) ->
     {#state{}, jmap()}.
+%% connect
 jmap(State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
     case jmap_connect_parse_args(Args) of
         {ok, {ConnSpec, Auth}} ->
@@ -172,30 +180,74 @@ jmap(State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
                 false ->
                     {ok, _} = switchboard:add(ConnSpec, Auth),
                     {State#state{connspec=ConnSpec, auth=Auth, owner=true},
-                     {<<"connected">>, [], ClientID}};
+                     {<<"connected">>, [{}], ClientID}};
                 true ->
                     {State#state{connspec=ConnSpec, auth=Auth, owner=false},
-                     {<<"connected">>, [], ClientID}}
+                     {<<"connected">>, [{}], ClientID}}
             end;
         {error, _} ->
             {State, err(<<"badArgs">>, JMAPCall)}
     end;
-jmap(#state{auth=Auth} = State, JMAP) ->
-    %% @todo for bad cmds, an imap connection is checked out. Bad.
+
+%% idle
+jmap(#state{auth=Auth} = State,
+     {<<"idle">>, Args, ClientID} = JMAPCall) when Auth =/= none ->
+    case proplists:get_value(<<"list">>, Args) of
+        undefined ->
+            {State, err(<<"noList">>, JMAPCall)};
+        [] ->
+            {State, err(<<"emptyList">>, JMAPCall)};
+        Mailboxes when is_list(Mailboxes) ->
+            %% XXX - race condition here, depending on if name registration
+            %% occurs immediately
+            Username = imap:auth_to_username(Auth),
+            MonitoredSet = sets:from_list(switchboard:mailbox_monitors(Username)),
+            MailboxesSet = sets:from_list(Mailboxes),
+            RespArgs =
+                case sets:fold(
+                       fun(Mailbox, Acc) ->
+                               switchboard:add_mailbox_monitor(Username, Mailbox),
+                               Acc
+                       end, [], sets:subtract(MailboxesSet, MonitoredSet)) of
+                    [] ->
+                        [{}];
+                    Failed ->
+                        [{failed, Failed}]
+                end,
+            %% XXX better way to do this without the catch?
+            catch switchboard:subscribe(new),
+            {State#state{idle_mailboxes=Mailboxes}, {<<"idling">>, RespArgs, ClientID}}
+    end;
+
+jmap(#state{auth=Auth} = State, JMAPCall) when Auth =/= none ->
+    %% @todo for bad cmds, an imap connection is still checked out. Inefficient.
     Username = imap:auth_to_username(Auth),
-    switchboard:with_imap(Username, fun(IMAP) -> jmap(IMAP, State, JMAP) end).
+    switchboard:with_imap(Username, fun(IMAP) -> jmap(IMAP, State, JMAPCall) end);
+jmap(State, JMAPCall) ->
+    {State, err(<<"badArgs">>, JMAPCall)}.
 
 
 %% @private
 %% @doc Execute a JMAP command using the provided account.
 -spec jmap(pid(), #state{}, jmap()) ->
     {#state{}, jmap()}.
+
+%% getMailboxes
 jmap(IMAP, State, {<<"getMailboxes">>, [], ClientID}) ->
-    lager:info("~p", [imap:call(IMAP, list)]),
     {ok, ListResps} = imap:clean_list(imap:call(IMAP, list)),
-    Mailboxes = [jmap_get_mailbox(IMAP, proplists:get_value(name, ListResp)) ||
-                    ListResp <- ListResps],
-    lager:info("getMailboxes results: ~p", [Mailboxes]),
+    Mailboxes = lists:foldl(
+                  fun(ListResp, Acc) ->
+                          NameAttrs = proplists:get_value(name_attrs, ListResp),
+                          case lists:member(<<"\\Noselect">>, NameAttrs) of
+                              false ->
+                                  Name = proplists:get_value(name, ListResp),
+                                  {ok, JMAPMailbox} = jmap_get_mailbox(IMAP, Name),
+                                  [JMAPMailbox | Acc];
+                              true ->
+                                  Acc
+                          end
+                  end, [], ListResps),
+    lager:info("getMailboxes results: ~p, listResps: ~p", [Mailboxes, ListResps]),
     CmdState = <<"state">>,
     {State,
      {<<"mailboxes">>, [{<<"state">>, CmdState}, {<<"list">>, Mailboxes}], ClientID}};
@@ -212,15 +264,18 @@ jmap_get_mailbox(IMAP, Mailbox) ->
     case imap:call(IMAP, {examine, Mailbox}) of
         {ok, {_, ExamineResps}} ->
             Resps = [imap:clean(Resp) || Resp <- ExamineResps],
-            UIDValidity = proplists:get_value(uid_validity, Resps),
+            UIDValidity = proplists:get_value(uidvalidity, Resps),
+            lager:info("Resps: ~p, UIDValidity: ~p", [Resps, UIDValidity]),
             {ok, [{name, Mailbox}, {id, jmap_mailbox_id(Mailbox, UIDValidity)}]};
         {error, Reason} ->
             {error, Reason}
     end.
 
 
-jmap_mailbox_id(MailboxName, UIDValidity) ->
-    <<MailboxName/binary, "-", UIDValidity/binary>>.
+-spec jmap_mailbox_id(binary(), integer()) ->
+    binary().
+jmap_mailbox_id(MailboxName, UIDValidity)  ->
+    <<MailboxName/binary, "-", UIDValidity/integer>>.
 
 
 %% @private
@@ -276,16 +331,17 @@ auth_for_switchboard(<<"xoauth2">>, Auth) ->
 -ifdef(LIVE_TEST).
 
 suite_test_() ->
-    [decode_encode_asserts(),
-     jmap_connect_asserts(),
+    [decode_encode_assertions(),
+     jmap_connect_assertions(),
      {foreach,
       fun imap_setup/0,
       fun imap_teardown/1,
-      [fun get_mailboxes_asserts/1]}].
+      [fun get_mailboxes_assertions/1,
+       fun idle_assertions/1]}].
 
 %% @private
 %% @doc Assertions for `encode/1' and `decode/1'.
-decode_encode_asserts() ->
+decode_encode_assertions() ->
     EncodedCall = <<"[[\"method1\",{\"arg1.1\":\"val1.1\"},\"#1\"]"
                     ",[\"method2\",{\"arg2.1\":\"val2.1\"}]]">>,
     DecodedCall = [{<<"method1">>, [{<<"arg1.1">>, <<"val1.1">>}], <<"#1">>},
@@ -298,7 +354,7 @@ decode_encode_asserts() ->
 
 %% @private
 %% @doc Assertions for the jmap (well, my interpretation at least) connect command
-jmap_connect_asserts() ->
+jmap_connect_assertions() ->
     {ssl, Host, Port} = ?DISPATCH_CONN_SPEC,
     Auth = ?DISPATCH_AUTH,
     Account = imap:auth_to_username(Auth),
@@ -341,8 +397,22 @@ imap_teardown({Username, IMAP}) ->
 
 %% @private
 %% @doc Assertions for the JMAP getMailboxes command.
-get_mailboxes_asserts({_, IMAP}) ->
+get_mailboxes_assertions({_, IMAP}) ->
     [?_assertMatch({#state{}, {<<"mailboxes">>, Args, <<"1">>}} when is_list(Args),
                    jmap(IMAP, #state{}, {<<"getMailboxes">>, [], <<"1">>}))].
+
+%% @private
+%% @doc Assertions for the idle command.
+%% @todo Write tests for `failed` mailboxes.
+idle_assertions({Account, _}) ->
+    %% XXX - these config vals should be passed through the opts...
+    State = #state{connspec=?DISPATCH_CONN_SPEC, auth=?DISPATCH_AUTH},
+    IdleMailboxes = [<<"INBOX">>],
+    [IdleMailbox] = IdleMailboxes,
+    State2 = State#state{idle_mailboxes = IdleMailboxes},
+    [?_assertMatch({State2, {<<"idling">>, [{}], <<"1">>}},
+                   jmap(State, {<<"idle">>, [{<<"list">>, IdleMailboxes}], <<"1">>})),
+     ?_assertMatch(P when is_pid(P), switchboard:await(Account, {idler, IdleMailbox})),
+     ?_assertEqual(IdleMailboxes, switchboard:mailbox_monitors(Account))].
 
 -endif.

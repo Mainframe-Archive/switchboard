@@ -87,13 +87,13 @@ from a running Switchboard application. Most tests are written in
 a module separate from the code which they are testing. These
 modules are kept in `src/test/eunit`.
 
-For example, `switchboard_tests:test().` run at the Erlang console
-will run all of the tests in the `switchboard_tests` module.
+For example, `switchboard:test().` run at the Erlang console
+will run all of the tests in the `switchboard` module.
+`switchboard:test_all()` will run all tests listed in the function call --
+hopefully all of the eunit tests in the application.
 
 The `TEST` and `LIVE_TEST` provide boolean controls for knocking
 out tests, keeping them out of compiled production code.
-
-TODO mechanism for running all tests -- common_test?
 
 Tests for a module are automatically run by `reloader.erl` when a file
 is reloaded (credit for `reloader.erl` goes to `mochi/mochiweb`).
@@ -123,48 +123,88 @@ commands. The examples below should be a bit more clean than my made
 up pseudocode.
 
 
-- Implemented
-    - `getMailboxes`
-	    - No permissions
-- Added
-    - `connect`
-
-
 ### `connect`
+
+A high level description is provided
+[here](http://jmap.io/#transport-and-authentication), but
+the details have been left up to the implementer. `connect`
+accepts the `host` and `port` of the IMAP server, as well
+as an `auth` object that is used to login after connecting
+to the server. A `connected` response indicates that
+the connection and login was successful.
 
 Using plain auth:
 
-    C: ["connect", {"host": "imap.google"
-                    "port": 993,
-					"auth": {
-					  "type": "plain",
-					  "username": "username@gmail.com",
-					  "password": "drowssap"}}]
-    S: ["connected", {}]
+    C: [["connect", {"host": "imap.google"
+                     "port": 993,
+					 "auth": {
+					   "type": "plain",
+					   "username": "username@gmail.com",
+					   "password": "drowssap"}}]]
+    S: [["connected", {}]]
 
 Using XOAUTH2:
 
-    C: ["connect", {"host": "imap.google"
-                    "port": 993,
-					"auth": {
-					  "type": "xoauth2",
-					  "username": "dispatchonme@gmail.com",
-					    "token": {
-						  "type": "refresh"
-					      "token": "1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc",
-					      "url": "https://accounts.google.com/o/oauth2/token"}}}]
-    S: ["connected", {}]
+    C: [["connect", {"host": "imap.google"
+                     "port": 993,
+					 "auth": {
+					   "type": "xoauth2",
+					   "username": "dispatchonme@gmail.com",
+					     "token": {
+						   "type": "refresh"
+					       "token": "1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc",
+					       "url": "https://accounts.google.com/o/oauth2/token"}}}]]
+    S: [["connected", {}]]
+
+### `idle`
+
+The `idle` command tells the server to create IMAP connections for the
+set of mailboxe names listed. It is not a part of the jmap spec.
+If the server failed to create any connections, it will include a
+`failed` key in the response args with a list of failed mailbox names.
+
+Each call of "idle" replaces the list of mailboxes being monitored.
 
 
-### `getMailboxes`
+    C: [["idle", {"list": ["INBOX", "NON-EXISTENT"]}]]
+	S: [["idling", {"failed": ["NON-EXISTENT"]}]]
 
-    C: ["getMailboxes"]
-    S: ["mailboxes", []]
+    # The server will send unsolicited responses
+	# Warning: this message format is going to change to get more jmap-y
+    S: [["newMessage", {"item": {
+	                      "uid": 12,
+	                      "envelope": {
+						    "date": "Fri, 30 May 2014 15:24:03 -0700",
+							"subject": "boombang",
+							"from": {"address": {"name": "Thomas Moulia", "email": "jtmoulia@gmail.com"}},
+						    "sender": {"address": {"name": "Thomas Moulia", "email":"jtmoulia@gmail.com"}},
+							"replyto":{"address":{"name":"Thomas Moulia","email":"jtmoulia@gmail.com"}},
+							"to":{"address":{"email":"mail.dispatch.test@gmail.com"}},
+							"cc": [], "bcc": [], "inreplyto": [],
+							"messageid":"<etPan.53890503.7e0c57b1.113@Thomass-MacBook-Pro.local>"},
+							"flags": [],
+							"internaldate": "30-May-2014 22:24:05 +0000",
+							"rfc822size": 3885},
+					      "account": "mail.dispatch.test@gmail.com",
+						  "mailbox":"INBOX"}]]
+
+
+### [`getMailboxes`](http://jmap.io/#getmailboxes)
+
+Returns a list of all mailbox objects.
+
+    C: [["getMailboxes", {}]]
+    S: [["mailboxes", {"state":"state",
+	                   "list": [{"name": "INBOX",
+					            "id": "INBOX-\u0001"}]},
+		1]]
+
+TODO - Nested Mailboxes, Permissions
 
 ### Example Client
 
 An example client written in javascript is located in
-[`client/switchboardclient.js`](../client/switchboardclient.js). The
+[`client/switchboardclient.js`](../priv/static/js/switchboardclient.js). The
 sourcefile contains comments mapping out common components of a
 Switchboard client, and is a great reference for understanding how the
 protocol works.

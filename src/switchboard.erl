@@ -40,19 +40,26 @@
 -export([start/0,
          add/2, add/3,
          stop/1,
+         add_mailbox_monitor/2,
+         stop_mailbox_monitor/2,
          key_for/2,
+         await/2, await/3,
          register_callback/2,
          where/2,
          checkout/1,
          return/2,
          with_imap/2,
          accounts/0,
+         mailbox_monitors/1,
          subscribe/1,
          unsubscribe/1,
          publish/2]).
 
+-include("switchboard.hrl").
+
 % -type process() :: account | active.
--type keytype() :: account | active | {idler | operator, imap:mailbox()}.
+-type keytype() :: account | active | idlers
+                 | {idler | operator | idler_sup, imap:mailbox()}.
 -type pubsub_channel() :: new.
 
 
@@ -96,6 +103,25 @@ add(ConnSpec, Auth, Mailboxes) ->
     ok | {error, not_found | simple_one_for_one}.
 stop(Account) ->
     switchboard_sup:stop_child(Account).
+
+
+%% @doc Add a mailbox to be monitored for the provided account.
+
+-spec add_mailbox_monitor(imap:account(), imap:mailbox()) ->
+    supervisor:startchild_ret().
+add_mailbox_monitor(Account, Mailbox) ->
+    case switchboard:where(Account, idlers) of
+        undefined ->
+            {error, notup};
+        IdlersPid ->
+            switchboard_idlers:start_child(IdlersPid, Mailbox)
+    end.
+
+
+-spec stop_mailbox_monitor(imap:account(), imap:mailbox()) ->
+    ok | {error, not_found | simple_one_for_one}.
+stop_mailbox_monitor(Account, Mailbox) ->
+    switchboard_idlers:stop_child(Account, Mailbox).
 
 
 %% @doc Returns the key for the given account and process type.
@@ -144,12 +170,31 @@ register_callback(Account, Type) ->
 %% For example, `where(<<"dispatchonme@gmail.com">>, active)' would return
 %% the `active' IMAP client for `dispatchonme@gmail.com'.
 %%
-%% @see key_for
+%% @see key_for/2
 
-%-spec where(any(), keytype()) ->
-%    pid().
+-spec where(any(), keytype()) ->
+    pid().
 where(Account, Type) ->
     gproc:where(key_for(Account, Type)).
+
+
+%% @equiv await(Account, Type, 5000)
+-spec await(imap:account(), keytype()) ->
+    pid().
+await(Account, Type) ->
+    await(Account, Type, 5000).
+
+
+%% @doc Wraps gproc's await command for Switchboard. This plays an
+%% important role since the IMAP connections move from supervisor init
+%% -> startup cmds -> registering via gproc. Awaiting registration
+%% will provide a ready to go process.
+
+-spec await(imap:account(), keytype(), non_neg_integer()) ->
+    pid().
+await(Account, Type, Timeout) ->
+    {Pid, _Value} = gproc:await(switchboard:key_for(Account, Type), Timeout),
+    Pid.
 
 
 %% @todo implement a pool around active connections, checkout the active process
@@ -223,6 +268,18 @@ accounts() ->
     gproc:select([{MatchHead, [], ['$1']}]).
 
 
+%% @doc Returns the list of mailboxes which are being monitored for the
+%% provided Account.
+
+-spec mailbox_monitors(imap:account()) ->
+    [binary()].
+mailbox_monitors(Account) ->
+    Key = {switchboard, {{idler, '$1'}, Account}},
+    GProcKey = {'_', '_', Key},
+    MatchHead = {GProcKey, '_', '_'},
+    gproc:select([{MatchHead, [], ['$1']}]).
+
+
 %%==============================================================================
 %% Internal Functions
 %%==============================================================================
@@ -250,3 +307,106 @@ start_app([App | Rest] = Apps) ->
     end;
 start_app(App) ->
     start_app([App]).
+
+
+%%==============================================================================
+%% EUnit tests.
+%%==============================================================================
+
+-ifdef(TEST).
+
+-compile(export_all).
+
+%% @private
+%% @doc Run all eunit tests.
+test_all() ->
+    ?MODULE:test(),
+    switchboard_jmap:test(),
+    switchboard_accounts_tests:test(),
+    switchboard_idler_tests:test(),
+    switchboard_operator_tests:test(),
+    switchboard_socket_tests:test(),
+    switchboard_util:test(),
+    imap_tests:test().
+
+
+%% @private
+%% @doc Add the dispatch user.
+add_dispatch() ->
+    {ConnSpec, Auth} = dispatch(),
+    switchboard:add(ConnSpec, Auth, [?DISPATCH_MAILBOX]).
+
+
+%% @private
+%% @doc Useful for the console.
+dispatch() ->
+    {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH}.
+
+
+%% @private
+%% @doc Run the suite of tests.
+suite_test_() ->
+    [add_stop_assertions(),
+     pubsub_assertions(),
+     {foreach,
+      fun() ->
+              {ok, _} = switchboard:add(?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH),
+              {_, _} = gproc:await(switchboard:key_for(?DISPATCH, active), 5000),
+              ?DISPATCH end,
+      fun(Account) ->
+              IMAP = switchboard:where(Account, active),
+              ok = switchboard:stop(Account),
+              switchboard_util:await_death(IMAP)
+      end,
+      [fun where_assertions/1,
+       fun accounts_assertions/1,
+       fun monitor_assertions/1,
+       fun query_assertions/1]}].
+
+
+%% @private
+add_stop_assertions() ->
+    [?_assertMatch({ok, _}, add_dispatch()),
+     ?_assertEqual(ok, switchboard:stop(?DISPATCH))].
+
+
+%% @private
+pubsub_assertions() ->
+    PubRecv = fun(Msg) ->
+                      Msg = switchboard:publish(new, Msg),
+                      receive R -> R after 100 -> timeout end
+              end,
+    [?_assertEqual(true, switchboard:subscribe(new)),
+     ?_assertEqual(msg, PubRecv(msg)),
+     ?_assertEqual(true, switchboard:unsubscribe(new))].
+
+
+%% @private
+where_assertions(Account) ->
+    [?_assertMatch(P when is_pid(P), switchboard:await(Account, account)),
+     ?_assertMatch(P when is_pid(P), switchboard:await(Account, active))].
+
+
+%% @private
+accounts_assertions(Account) ->
+    [?_assertEqual(switchboard:accounts(), [Account])].
+
+
+%% @private
+monitor_assertions(Account) ->
+    Mailbox = <<"INBOX">>,
+    [?_assertEqual([], mailbox_monitors(Account)),
+     ?_assertMatch({ok, Pid} when is_pid(Pid), add_mailbox_monitor(Account, Mailbox)),
+     ?_assertMatch(P when is_pid(P), switchboard:await(Account, {idler, Mailbox})),
+     ?_assertEqual([Mailbox], mailbox_monitors(Account)),
+     ?_assertEqual(ok, stop_mailbox_monitor(Account, Mailbox)),
+     ?_assertEqual([], mailbox_monitors(Account))].
+
+
+%% @private
+%% @doc Test that the imap server can be queried.
+query_assertions(Account) ->
+    Active = switchboard:await(Account, active),
+    [?_assertMatch({ok, _}, imap:call(Active, {select, <<"INBOX">>}))].
+
+-endif.
