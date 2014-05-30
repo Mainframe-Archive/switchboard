@@ -1,9 +1,10 @@
 # Getting Started
 
 Getting started with...
-- [the core application](#core") - how connect a shell, use code reloading, running tests, and ...
 
-## <span name="core"></span>Switchboard Core
+- [the core application](#core) - how to get hacking with the core application
+
+## Switchboard Core<a name="core"></a>
 
 This section is for people who want to develop on the core Switchboard
 application.
@@ -60,7 +61,7 @@ TODO mechanism for running all tests -- common_test?
 Tests for a module are automatically run by `reloader.erl` when a file
 is reloaded (credit for `reloader.erl` goes to `mochi/mochiweb`).
 
-## <span name="client"></span>Switchboard Client Protocol
+## Switchboard Client Protocol<a name="client"></a>
 
 This section is for people who want to write a Switchboard client, or
 just understand more about how the Swithcboard Protocol works.
