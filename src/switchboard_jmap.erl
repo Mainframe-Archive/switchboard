@@ -47,7 +47,8 @@
 
 
 -record(state, {connspec = none :: imap:connspec() | none,
-                auth = none :: imap:auth() | none}).
+                auth = none :: imap:auth() | none,
+                owner = true :: boolean()}).
 
 %%==============================================================================
 %% Cowboy Websocket Handler Callbacks
@@ -55,7 +56,6 @@
 
 %% @private
 init({tcp, http}, _Req, _Opts) ->
-    lager:error("Upgrading Protocol"),
     {upgrade, protocol, cowboy_websocket}.
 
 
@@ -65,7 +65,7 @@ websocket_init(_TransportName, Req, _Opts) ->
 
 
 %% @private
-websocket_handle(Data, Req, State) when is_binary(Data) ->
+websocket_handle({text, Data}, Req, State) when is_binary(Data) ->
     Calls = decode(Data),
     {State2, Resps} = execute(State, Calls),
     {reply, {text, encode(Resps)}, Req, State2};
@@ -81,7 +81,7 @@ websocket_info(Info, Req, State) ->
 
 
 %% @private
-websocket_terminate(_Reason, _Req, #state{auth=Auth}) when Auth =/= none ->
+websocket_terminate(_Reason, _Req, #state{auth=Auth, owner=true}) when Auth =/= none ->
     Username = imap:auth_to_username(Auth),
     switchboard:stop(Username);
 websocket_terminate(_Reason, _Req, _State) ->
@@ -106,10 +106,19 @@ websocket_terminate(_Reason, _Req, _State) ->
                  Args     :: [jmap_arg()],
                  ClientID :: undefined | binary()}.
 
+%% @private
+%% @equiv execute(State, Calls, [])
 -spec execute(binary(), [jmap()]) ->
-    [jmap()].
+    {#state{}, [jmap()]}.
 execute(State, Calls) ->
-    [jmap(State, Call) || Call <- Calls].
+    execute(State, Calls, []).
+
+%% @private
+execute(State, [], Resps) ->
+    {State, lists:reverse(Resps)};
+execute(State, [Call | Rest], Resps) ->
+    {State2, Resp} = jmap(State, Call),
+    execute(State2, Rest, [Resp | Resps]).
 
 
 %% @private
@@ -117,6 +126,7 @@ execute(State, Calls) ->
 -spec decode(binary()) ->
     [jmap()].
 decode(JSON) ->
+    lager:info("JSON: ~p", [jsx:decode(JSON)]),
     [jmap_to_erl(JMAPCall) || JMAPCall <- jsx:decode(JSON)].
 
 
@@ -153,14 +163,20 @@ erl_to_jmap({Method, Args, ClientID}) ->
 %% should be notified of, return an error response.
 %% @see err/2.
 -spec jmap(#state{}, jmap()) ->
-    jmap().
+    {#state{}, jmap()}.
 jmap(State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
     case jmap_connect_parse_args(Args) of
         {ok, {ConnSpec, Auth}} ->
-            lager:info("Accounts: ~p", [switchboard:accounts()]),
-            {ok, _} = switchboard:add(ConnSpec, Auth),
-            {State#state{connspec=ConnSpec, auth=Auth},
-             {<<"connected">>, [], ClientID}};
+            Username = imap:auth_to_username(Auth),
+            case lists:member(Username, switchboard:accounts()) of
+                false ->
+                    {ok, _} = switchboard:add(ConnSpec, Auth),
+                    {State#state{connspec=ConnSpec, auth=Auth, owner=true},
+                     {<<"connected">>, [], ClientID}};
+                true ->
+                    {State#state{connspec=ConnSpec, auth=Auth, owner=false},
+                     {<<"connected">>, [], ClientID}}
+            end;
         {error, _} ->
             {State, err(<<"badArgs">>, JMAPCall)}
     end;
@@ -173,7 +189,7 @@ jmap(#state{auth=Auth} = State, JMAP) ->
 %% @private
 %% @doc Execute a JMAP command using the provided account.
 -spec jmap(pid(), #state{}, jmap()) ->
-    jmap().
+    {#state{}, jmap()}.
 jmap(IMAP, State, {<<"getMailboxes">>, [], ClientID}) ->
     lager:info("~p", [imap:call(IMAP, list)]),
     {ok, ListResps} = imap:clean_list(imap:call(IMAP, list)),
@@ -183,8 +199,8 @@ jmap(IMAP, State, {<<"getMailboxes">>, [], ClientID}) ->
     CmdState = <<"state">>,
     {State,
      {<<"mailboxes">>, [{<<"state">>, CmdState}, {<<"list">>, Mailboxes}], ClientID}};
-jmap(_IMAP, _State, JMAP) ->
-    err(<<"unknownMethod">>, JMAP).
+jmap(_IMAP, State, JMAP) ->
+    {State, err(<<"unknownMethod">>, JMAP)}.
 
 
 %% @private
@@ -225,7 +241,7 @@ jmap_connect_parse_args(Args) ->
 -spec err(binary(), jmap()) ->
     jmap().
 err(Type, {Method, Args, ClientID}) ->
-    {error,
+    {<<"error">>,
      [{<<"type">>, Type},
       {<<"method">>, Method},
       {<<"arguments">>, Args}],

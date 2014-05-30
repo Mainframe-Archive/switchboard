@@ -49,9 +49,14 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    Dispatch = cowboy_router:compile([{'_',
-                                       [{<<"/sockets">>, switchboard_sockets, []}],
-                                       [{<<"/clients">>, switchboard_jmap, []}]}]),
+    Dispatch = cowboy_router:compile(
+                 [{'_',
+                   [{<<"/static/[...]">>, cowboy_static,
+                     {priv_dir, switchboard, "static"}},
+                    {<<"/jsclient">>, cowboy_static,
+                     {priv_file, switchboard, "switchboardclient.html"}},
+                    {<<"/sockets">>, switchboard_sockets, []},
+                    {<<"/clients">>, switchboard_jmap, []}]}]),
     Port = case application:get_env(cowboy_port) of
                undefined     -> 8080;
                {ok, EnvPort} -> EnvPort

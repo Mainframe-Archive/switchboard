@@ -21,12 +21,15 @@ Client section for directions on how to start fetching emails.
 
 ## From Source
 
-Switchboard uses `extend/erlang.mk` and `erlware/relx` to build and
+Switchboard uses
+[`extend/erlang.mk`](https://github.com/extend/erlang.mk) and
+[`erlware/relx`](https://github.com/erlware/relx) to build and
 package the application.
 
-Switchboard depends on `make`, and Erlang/OTP R16B03. I'll leave
-installing `make` up to you, but to install Erlang you can use
-Homebrew if you're on Mac OS X, else check
+These instructions require `make` and `git` to be on your path, and an
+installation of Erlang/OTP R16B03. I'll leave `make` and `git` to you,
+but to install Erlang you can use Homebrew if you're on Mac OS X, else
+check
 [here](https://www.erlang-solutions.com/downloads/download-erlang-otp)
 for the appropriate package/architecture and installation
 instructions.
@@ -46,6 +49,6 @@ a release, and start it.
 	# Print more options, like stopping Switchboard
 	./_rel/bin/switchboard
 
-Please create an issue if there were any problems!
+Please create an issue if there were any problems.
 
 Next up: [Getting Started](getting-started.md).

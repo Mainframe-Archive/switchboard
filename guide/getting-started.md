@@ -114,7 +114,7 @@ of a JMAP exchange, the data model, and data types.
 
 TL;DR: a client connects to the server over a websocket.  If you're
 running Switchboard locally, the url defaults to
-`ws://127.0.0.1:8000/clients`. Data is encoded in UTF8 JSON. Clients
+`ws://127.0.0.1:8080/clients`. Data is encoded in UTF8 JSON. Clients
 issue a list of commands to the server in the form form
 `[[${method <string>}, ${args <object>}, ${tag (optional)}], ...]`.
 The server runs the commands in order, generating and returning a list
@@ -169,9 +169,7 @@ sourcefile contains comments mapping out common components of a
 Switchboard client, and is a great reference for understanding how the
 protocol works.
 
-To try the client out, first start the Switchboard application, then
-run `make clientserve` -- that requires Python 2.7.x, and just serves
-the `client` folder. Point your browser to
-[http://127.0.0.1:8001/switchboardclient.html](http://127.0.0.1:8001/switchboardclient.html),
+To try the client out, start the Switchboard application and point
+your browser [here](http://127.0.0.1:8080/jsclient),
 and it should display a page with some getting started commands. Open
 your browser's javascript console and try them out.

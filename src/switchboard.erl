@@ -155,7 +155,8 @@ where(Account, Type) ->
 %% @todo implement a pool around active connections, checkout the active process
 %% from this.
 checkout(Account) ->
-    {ok, where(Account, active)}.
+    {Active, _} = gproc:await(key_for(Account, active), 5000),
+    {ok, Active}.
 
 
 %% @todo return a checked out IMAP connection.

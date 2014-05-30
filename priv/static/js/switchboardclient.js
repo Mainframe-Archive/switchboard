@@ -16,7 +16,7 @@ var ConnSpec = {host: "imap.gmail.com",
 		    password: "i>V99JuMVEs;"}};
 
 // The Switchboard application's default client endpoint.
-var URL = "wss://127.0.0.1:8080/clients";
+var URL = "ws://127.0.0.1:8080/clients";
 
 
 /**
@@ -28,28 +28,42 @@ var URL = "wss://127.0.0.1:8080/clients";
  */
 function SwitchboardClient (url, connspec) {
     // Open a connection to the Switchboard server
-    console.log("Working");
     var conn = new WebSocket(url);
     var tag = 0;
     var cmds = {};
 
     /**
-     * Send a command to the server using the tagged form.
-     *
-     * Stores the command hashed by tag for response handling.
+     * `makeCmd` composes the call arguments into a list,
+     * adding a tag if not specified.
      */
-    this.cmd = function(method, args, tagArg) {
+    function makeCmd (method, args, callback, tagArg) {
 	var tagArg = tagArg === undefined ? tag++ : tagArg;
-	var cmd = [method, args, tag];
-	cmds[tag] = cmd;
-	tag++;
-	console.log("Sending cmd: " + json.stringify(cmd));
-	conn.send(json.stringify(cmd));
+	if (callback) {
+	    cmds[tagArg] = callback;
+	}
+	var cmd = [method, args, tagArg];
+	return cmd;
     }
+
+
+    /**
+     * Public Interface
+     */
+
+    /**
+     * `sendCmds` prepares and sends off a list of commands.
+     */
+    this.sendCmds = function (cmds) {
+	return conn.send(JSON.stringify(cmds))
+    };
+
+    this.getMailboxes = function (callback) {
+	return this.sendCmds([makeCmd("getMailboxes", [], callback)]);
+    }.bind(this);
 
     conn.onopen = function() {
 	console.log("Connecting...");
-	this.cmd("connect", connspec);
+	this.sendCmds([makeCmd("connect", connspec)])
     }.bind(this);
 
     conn.onerror = function(error) {
@@ -57,6 +71,25 @@ function SwitchboardClient (url, connspec) {
     }
 
     conn.onmessage = function(e) {
-	console.log("Received " + e.data);
+	var responses = JSON.parse(e.data)
+	for (var i = 0; i < responses.length; i++) {
+	    switch (responses[i].length) {
+	      case 2:
+		break;
+	      case 3:
+		var tag = responses[i][2]
+		if (tag in cmds) {
+		    try {
+			cmds[tag](response);
+		    }
+		    catch (e) {
+			console.log(e);
+		    }
+		    delete cmds[tag];
+		}
+		break;
+	    }
+	}
+	console.log(responses);
     }
 };
