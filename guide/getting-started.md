@@ -129,10 +129,10 @@ Using XOAUTH2:
 ### Example Client
 
 An example client written in javascript is located in
-[`client/switchboardclient.js`](../client/switchboard.js). The
+[`client/switchboardclient.js`](../client/switchboardclient.js). The
 sourcefile contains comments mapping out common components of a
-Switchboard client, and is a great reference for understanding how
-the protocol works.
+Switchboard client, and is a great reference for understanding how the
+protocol works.
 
 To try the client out, first start the Switchboard application, then
 run `make clientserve` -- that requires Python 2.7.x, and just serves
