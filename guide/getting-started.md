@@ -198,7 +198,7 @@ Returns a list of all mailbox objects.
 	                   "list": [{"name": "INBOX",
 					            "id": "INBOX-\u0001"}]}]]
 
-TODO - Nested Mailboxes, Permissions
+TODO - Permissions
 
 
 ### Example Client

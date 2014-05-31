@@ -93,7 +93,7 @@ add(ConnSpec, Auth) ->
 -spec add(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startchild_ret().
 add(ConnSpec, Auth, Mailboxes) ->
-    switchboard_sup:start_child(ConnSpec, Auth, Mailboxes).
+    switchboard_accounts_sup:start_child(ConnSpec, Auth, Mailboxes).
 
 
 %% @doc Stop the account from being monitored. Unlike add, this only
@@ -102,7 +102,7 @@ add(ConnSpec, Auth, Mailboxes) ->
 -spec stop(binary()) ->
     ok | {error, not_found | simple_one_for_one}.
 stop(Account) ->
-    switchboard_sup:stop_child(Account).
+    switchboard_accounts_sup:stop_child(Account).
 
 
 %% @doc Add a mailbox to be monitored for the provided account.

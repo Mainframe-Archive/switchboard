@@ -669,13 +669,13 @@ cmd_to_list(list) ->
 cmd_to_list({list, Reference, Match}) ->
     [<<"LIST">>, Reference, Match];
 cmd_to_list({status, Mailbox}) ->
-    [<<"STATUS">>, Mailbox];
+    [<<"STATUS">>, quote_wrap_binary(Mailbox)];
 cmd_to_list({status, Mailbox, Items}) ->
-    [<<"STATUS">>, Mailbox, Items];
+    [<<"STATUS">>, quote_wrap_binary(Mailbox), Items];
 cmd_to_list({select, Mailbox}) ->
     [<<"SELECT">>, Mailbox];
 cmd_to_list({examine, Mailbox}) ->
-    [<<"EXAMINE">>, Mailbox];
+    [<<"EXAMINE">>, quote_wrap_binary(Mailbox)];
 cmd_to_list({uid, {fetch, SeqSet}}) ->
     [<<"UID">> | cmd_to_list({fetch, SeqSet})];
 cmd_to_list({uid, {fetch, SeqSet, Items}}) ->
@@ -689,6 +689,14 @@ cmd_to_list(noop) ->
     [<<"NOOP">>];
 cmd_to_list(idle) ->
     [<<"IDLE">>].
+
+
+%% @private
+%% @doc Wrap a binary with quotes.
+-spec quote_wrap_binary(binary()) ->
+    binary().
+quote_wrap_binary(Bin) ->
+    <<$", Bin/binary, $">>.
 
 
 %% @private

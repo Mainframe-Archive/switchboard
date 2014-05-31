@@ -234,7 +234,8 @@ jmap(State, JMAPCall) ->
 
 %% getMailboxes
 jmap(IMAP, State, {<<"getMailboxes">>, [], ClientID}) ->
-    {ok, ListResps} = imap:clean_list(imap:call(IMAP, list)),
+    %% XXX - LIST "" "*" is aggressibe, but so is getMailboxes
+    {ok, ListResps} = imap:clean_list(imap:call(IMAP, {list, <<"">>, <<"*">>})),
     Mailboxes = lists:foldl(
                   fun(ListResp, Acc) ->
                           NameAttrs = proplists:get_value(name_attrs, ListResp),
@@ -261,6 +262,7 @@ jmap(_IMAP, State, JMAP) ->
 -spec jmap_get_mailbox(pid(), binary()) ->
     {ok, [proplists:property()]} | {error, _}.
 jmap_get_mailbox(IMAP, Mailbox) ->
+    lager:info("Mailbox: ~p", [Mailbox]),
     case imap:call(IMAP, {examine, Mailbox}) of
         {ok, {_, ExamineResps}} ->
             Resps = [imap:clean(Resp) || Resp <- ExamineResps],
@@ -274,8 +276,10 @@ jmap_get_mailbox(IMAP, Mailbox) ->
 
 -spec jmap_mailbox_id(binary(), integer()) ->
     binary().
-jmap_mailbox_id(MailboxName, UIDValidity)  ->
-    <<MailboxName/binary, "-", UIDValidity/integer>>.
+jmap_mailbox_id(MailboxName, UIDValidity) when is_integer(UIDValidity) ->
+    jmap_mailbox_id(MailboxName, integer_to_binary(UIDValidity));
+jmap_mailbox_id(MailboxName, UIDValidity) when is_binary(UIDValidity)  ->
+    <<MailboxName/binary, "-", UIDValidity/binary>>.
 
 
 %% @private
