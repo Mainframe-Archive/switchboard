@@ -196,10 +196,10 @@ Returns a list of all mailbox objects.
     C: [["getMailboxes", {}]]
     S: [["mailboxes", {"state":"state",
 	                   "list": [{"name": "INBOX",
-					            "id": "INBOX-\u0001"}]},
-		1]]
+					            "id": "INBOX-\u0001"}]}]]
 
 TODO - Nested Mailboxes, Permissions
+
 
 ### Example Client
 

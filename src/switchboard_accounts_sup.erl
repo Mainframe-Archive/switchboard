@@ -33,30 +33,28 @@
 %%------------------------------------------------------------------------------
 
 %% @private
-%% @doc Top level supervisor for the Switchboard application.
+%% @doc `switchboard_accounts_sup' is a `simple_one_for_one'
+%% supervisor that watches `switchboard_accounts' child
+%% supervisors. The `switchboard_accounts' is the top-level supervisor
+%% for a single account, watching `active_imap', the active imap
+%% process, `switchboard_idlers', a supervisor watching the imap
+%% idling processes.
 
 
--module(switchboard_sup).
+-module(switchboard_accounts_sup).
 -behaviour(supervisor).
 
 %% Interface exports
--export([start_link/0]).
+-export([start_link/0,
+         start_child/3,
+         stop_child/1]).
 
 %% Callback exports
 -export([init/1]).
 
-%% Some worker processes, e.g. `reloader', are only started when DEBUG is set.
--include("switchboard.hrl").
--define(WORKER(M, F, A), {M, {M, F, A}, permanent, 5000, worker, [M]}).
--ifdef(DEBUG).
--define(WORKERS, [?WORKER(reloader, start_link, [])]).
--else.
--define(WORKERS, []).
--endif.
-
 
 %%==============================================================================
-%% Public interface.
+%% Interface exports
 %%==============================================================================
 
 %% @doc Start the supervisor as part of the supervision tree.
@@ -64,19 +62,39 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 
+%% @doc Add a new child. `switchboard:add' is a public
+%% facing alias for this function.
+-spec start_child(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
+    supervisor:startchild_ret().
+start_child(ConnSpec, Auth, Mailboxes) ->
+    case supervisor:start_child(?MODULE, [ConnSpec, Auth, Mailboxes]) of
+        {ok, Child} ->
+            {ok, Child};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+
+%% @doc Stop the child.
+-spec stop_child(binary()) ->
+    ok | {error, not_found | simple_one_for_one}.
+stop_child(Account) ->
+    ChildPid = switchboard:where(Account, account),
+    supervisor:terminate_child(?MODULE, ChildPid).
+
+
 %%==============================================================================
-%% Supervisor callbacks.
+%% Callback exports
 %%==============================================================================
 
 %% @private
 init(no_args) ->
-    RestartStrategy = one_for_one,
+    RestartStrategy = simple_one_for_one,
     MaxR = MaxT = 5,
-    AccountsSupSpec = {switchboard_accounts_sup,
-                       {switchboard_accounts_sup, start_link, []},
-                       transient,
-                       infinity,
-                       supervisor,
-                       [switchboard_accounts_sup]},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [AccountsSupSpec | ?WORKERS]}}.
-
+    AccountsSpec = {switchboard_accounts,
+                    {switchboard_accounts, start_link, []},
+                    transient,
+                    infinity,
+                    supervisor,
+                    [switchboard_accounts]},
+    {ok, {{RestartStrategy, MaxR, MaxT}, [AccountsSpec]}}.

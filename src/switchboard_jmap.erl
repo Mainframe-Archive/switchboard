@@ -333,6 +333,7 @@ auth_for_switchboard(<<"xoauth2">>, Auth) ->
 suite_test_() ->
     [decode_encode_assertions(),
      jmap_connect_assertions(),
+     jmap_mailbox_id_assertions(),
      {foreach,
       fun imap_setup/0,
       fun imap_teardown/1,
@@ -376,6 +377,12 @@ jmap_connect_assertions() ->
                     {<<"connected">>, _, <<"1">>}}, Connect),
      ?_assertEqual(ok, switchboard:stop(Account)),
      ?_assertEqual(ok, switchboard_util:await_death(IMAP))].
+
+
+%% @private
+%% @doc Assertions for the `jmap_mailbox_id/2'.
+jmap_mailbox_id_assertions() ->
+    [?_assertEqual(<<"Mailbox-1">>, jmap_mailbox_id(<<"Mailbox">>, 1))].
 
 
 %% @private

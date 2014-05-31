@@ -35,7 +35,6 @@
 -ifndef(TEST).
 -define(TEST, true).
 -endif.
-
 -define(LIVE_TEST, true).
 
 -include_lib("eunit/include/eunit.hrl").
