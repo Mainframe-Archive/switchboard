@@ -40,13 +40,27 @@
 
 -include("switchboard.hrl").
 
--export([get_values/2,
+-export([take_first/2,
+         get_values/2,
          await_death/1, await_death/2]).
 
 
 %%==============================================================================
 %% External API
 %%==============================================================================
+
+%% @doc Returns the first element that matches the predicate.
+-spec take_first(fun((A) -> boolean()), [A]) ->
+    A when A :: any().
+take_first(_, []) ->
+    undefined;
+take_first(Fun, [Head | Rest]) ->
+    case Fun(Head) of
+        true ->
+            Head;
+        _ ->
+            take_first(Fun, Rest)
+    end.
 
 %% @doc Returns the list of Values for the provided Keys from List, or undefined.
 -spec get_values([_], [proplists:property()]) ->
@@ -100,8 +114,14 @@ await_death(Pid, Timeout) ->
 %% get_values
 
 suite_test_() ->
-    [get_values_asserts(),
+    [take_first_asserts(),
+     get_values_asserts(),
      await_death_asserts()].
+
+take_first_asserts() ->
+    [?_assertEqual(true, take_first(fun(A) -> A end, [false, true])),
+     ?_assertEqual(undefined, take_first(fun(A) -> A end, [false, false])),
+     ?_assertEqual(undefined, take_first(fun(A) -> A end, []))].
 
 test_get_values({Keys, List}, Result) ->
     ?_assertEqual(Result, get_values(Keys, List)).

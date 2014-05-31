@@ -139,6 +139,7 @@
              | {status, mailbox()} | {status, mailbox(), [binary()]}
              | {examine, mailbox()}
              | {select, mailbox()}
+             | {search, iodata()}
              | {fetch, seqset()} | {fetch, seqset(), [binary()]}
              | {uid, {fetch, seqset()}} | {uid, {fetch, seqset(), [binary()]}}
              | noop
@@ -344,14 +345,18 @@ recv(Timeout, MonitorRef, Responses) ->
 
 
 %% @doc Clean a response to be JSON serializable via jsx. In other words,
-%% proplists! This only works on a single resonse; map it across a list of
-%% responses.
+%% proplists! For convenience, this function is overloaded to also accept
+%% a list of responses, in which case it will map itself across the list.
 %%
 %% NB: Not implemented for all responses -- see function matches.
 -spec clean(_) ->
     {atom(), _}.
+clean(Resps) when is_list(Resps) ->
+    [clean(Resp) || Resp <- Resps];
 clean({'*', [_, <<"FETCH">>, _]} = Fetch) ->
     clean_props(Fetch);
+clean({'*', [<<"SEARCH">> | SeqIds]}) ->
+    {search, SeqIds};
 clean({'*', [<<"FLAGS">> | Flags]}) ->
     {flags, Flags};
 clean({'*', [Exists, <<"EXISTS">>]}) ->
@@ -664,6 +669,8 @@ cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
                              "auth=Bearer ", AccessToken/binary,
                              "">>),
     [<<"AUTHENTICATE">>, <<"XOAUTH2">>, Encoded];
+cmd_to_list({uid, Cmd}) ->
+    [<<"UID">> | cmd_to_list(Cmd)];
 cmd_to_list(list) ->
     [<<"LIST">>, <<"">>, <<"%">>];
 cmd_to_list({list, Reference, Match}) ->
@@ -674,12 +681,10 @@ cmd_to_list({status, Mailbox, Items}) ->
     [<<"STATUS">>, quote_wrap_binary(Mailbox), Items];
 cmd_to_list({select, Mailbox}) ->
     [<<"SELECT">>, Mailbox];
+cmd_to_list({search, Terms}) ->
+    [<<"SEARCH">> | Terms];
 cmd_to_list({examine, Mailbox}) ->
     [<<"EXAMINE">>, quote_wrap_binary(Mailbox)];
-cmd_to_list({uid, {fetch, SeqSet}}) ->
-    [<<"UID">> | cmd_to_list({fetch, SeqSet})];
-cmd_to_list({uid, {fetch, SeqSet, Items}}) ->
-    [<<"UID">> | cmd_to_list({fetch, SeqSet, Items})];
 cmd_to_list({fetch, SeqSet}) ->
     cmd_to_list({fetch, SeqSet, <<"full">>});
 cmd_to_list({fetch, SeqSet, Data}) ->
@@ -718,8 +723,12 @@ list_to_imap_list(Term) ->
     iodata().
 seqset_to_list({none, Stop}) ->
     <<$:, (integer_to_binary(Stop))/binary>>;
+seqset_to_list({'*', Stop}) ->
+    <<$*, $:, (integer_to_binary(Stop))/binary>>;
 seqset_to_list({Start, none}) ->
     <<(integer_to_binary(Start))/binary, $:>>;
+seqset_to_list({Start, '*'}) ->
+    <<(integer_to_binary(Start))/binary, $:, $*>>;
 seqset_to_list({Start, Stop}) ->
     <<(integer_to_binary(Start))/binary, $:, (integer_to_binary(Stop))/binary>>;
 seqset_to_list('*') ->
@@ -955,7 +964,7 @@ pop_token(<<" ", Rest/binary>>, {number, NumberAcc}) ->
     {binary_to_integer(NumberAcc), Rest, none};
 pop_token(<<D, Rest/binary>>, {number, NumberAcc}) when D >= 48, D < 58 ->
     pop_token(Rest, {number, <<NumberAcc/binary, D>>});
-pop_token(<<D, Rest/binary>>, none) when D >= 48, D < 57 ->
+pop_token(<<D, Rest/binary>>, none) when D >= 48, D < 58 ->
     pop_token(Rest, {number, <<D>>});
 pop_token(<<C, Rest/binary>>, {number, NumberAcc}) when C >= 35, C < 123 ->
     pop_token(Rest, {atom, <<NumberAcc/binary, C>>});

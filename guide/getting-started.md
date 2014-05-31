@@ -175,10 +175,10 @@ Each call of "idle" replaces the list of mailboxes being monitored.
 	                      "uid": 12,
 	                      "envelope": {
 						    "date": "Fri, 30 May 2014 15:24:03 -0700",
-							"subject": "boombang",
-							"from": {"address": {"name": "Thomas Moulia", "email": "jtmoulia@gmail.com"}},
-						    "sender": {"address": {"name": "Thomas Moulia", "email":"jtmoulia@gmail.com"}},
-							"replyto":{"address":{"name":"Thomas Moulia","email":"jtmoulia@gmail.com"}},
+							"subject": "Ahoy!",
+							"from": {"address": {"name": "Errol", "email": "errol@gmail.com"}},
+						    "sender": {"address": {"name": "Errol", "email":"errol@gmail.com"}},
+							"replyto":{"address":{"name":"Errol","email":"errol@gmail.com"}},
 							"to":{"address":{"email":"mail.dispatch.test@gmail.com"}},
 							"cc": [], "bcc": [], "inreplyto": [],
 							"messageid":"<etPan.53890503.7e0c57b1.113@Thomass-MacBook-Pro.local>"},
@@ -203,6 +203,12 @@ Returns a list of all mailbox objects.
 
 TODO - ACL Permissions
 
+### [`getMessageList`](http://jmap.io/#getmessagelist)
+
+    C: [["getMessageList", {mailboxId: "INBOX-1"}]]
+	S: [["messageList", {messageIds: ["INBOX-1u1", "INBOX-1u2", "INBOX-1u3"]}]]
+
+TODO: All of the options, searching.
 
 ### Example Client
 

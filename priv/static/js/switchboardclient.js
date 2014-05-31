@@ -73,6 +73,11 @@ function SwitchboardClient (url, connspec) {
 	return this.sendCmds([makeCmd("idle", {list: mailboxes}, callback)]);
     }.bind(this);
 
+    this.getMessageList = function(mailboxId, callback) {
+	var args = {mailboxId: mailboxId};
+	return this.sendCmds([makeCmd("getMessageList", args, callback)]);
+    }.bind(this);
+
 
     /*********************
      * Websocket Callbacks
