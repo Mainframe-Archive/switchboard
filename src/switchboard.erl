@@ -325,7 +325,7 @@ test_all() ->
     switchboard_accounts_tests:test(),
     switchboard_idler_tests:test(),
     switchboard_operator_tests:test(),
-    switchboard_socket_tests:test(),
+    switchboard_sockets_tests:test(),
     switchboard_util:test(),
     imap_tests:test().
 

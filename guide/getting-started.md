@@ -194,11 +194,14 @@ Each call of "idle" replaces the list of mailboxes being monitored.
 Returns a list of all mailbox objects.
 
     C: [["getMailboxes", {}]]
-    S: [["mailboxes", {"state":"state",
+    S: [["mailboxes", {"state": 79153751884907,
 	                   "list": [{"name": "INBOX",
-					            "id": "INBOX-\u0001"}]}]]
+					            "id": "INBOX-1"}]}]]
 
-TODO - Permissions
+    C: [["getMailboxes", {"state": 79153751884907}]]
+    S: [["mailboxes", {"state": 79153751884907}]]
+
+TODO - ACL Permissions
 
 
 ### Example Client

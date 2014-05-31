@@ -12,7 +12,7 @@ accounts_test_() ->
 -spec accounts_setup() ->
     {{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}.
 accounts_setup() ->
-    {ConnSpec, Auth} = switchboard_tests:dispatch(),
+    {ConnSpec, Auth} = {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH},
     Mailboxes = [<<"INBOX">>],
     {ok, Pid} = switchboard_accounts:start_link(ConnSpec, Auth, Mailboxes),
     {{ConnSpec, Auth}, Mailboxes, Pid}.

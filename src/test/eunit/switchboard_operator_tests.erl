@@ -5,7 +5,10 @@
 
 swichboard_operator_test_() ->
     [{foreach,
-      fun() -> switchboard_tests:add_dispatch(), [{?DISPATCH, ?DISPATCH_MAILBOX}] end,
+      fun() ->
+              {ok, _} = switchboard:add(?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH),
+              [{?DISPATCH, ?DISPATCH_MAILBOX}]
+      end,
       fun([{Account, _} | _]) -> ok = switchboard:stop(Account) end,
       [fun update_uid_internal_assertions/1,
        fun current_uid_assertions/1]}].

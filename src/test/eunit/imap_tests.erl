@@ -252,7 +252,7 @@ dispatch_live_suite_test_() ->
 -spec dispatch_setup() ->
     dispatch_test_spec().
 dispatch_setup() ->
-    {ConnSpec, Auth} = switchboard_tests:dispatch(),
+    {ConnSpec, Auth} = {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH},
     TestPid = self(),
     {ok, Imap} = imap:start_link(ConnSpec,
                                  [{cmds, [{cmd, {call, {login, Auth}}}]},

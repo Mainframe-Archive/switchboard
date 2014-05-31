@@ -32,7 +32,7 @@ key_for_account_asserts() ->
 -spec handle_setup() ->
     {imap:account(), pid()}.
 handle_setup() ->
-    {ConnSpec, Auth} = switchboard_tests:dispatch(),
+    {ConnSpec, Auth} = {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH},
     Account = imap:auth_to_username(Auth),
     {ok, _} = switchboard:add(ConnSpec, Auth),
     {Account, switchboard:where(Account, active)}.
