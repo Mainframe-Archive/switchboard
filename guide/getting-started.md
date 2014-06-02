@@ -135,7 +135,7 @@ the connection and login was successful.
 
 Using plain auth:
 
-    C: [["connect", {"host": "imap.google"
+    C: [["connect", {"host": "imap.gmail.com",
                      "port": 993,
 					 "auth": {
 					   "type": "plain",
@@ -145,13 +145,13 @@ Using plain auth:
 
 Using XOAUTH2:
 
-    C: [["connect", {"host": "imap.google"
+    C: [["connect", {"host": "imap.gmail.com",
                      "port": 993,
 					 "auth": {
 					   "type": "xoauth2",
 					   "username": "dispatchonme@gmail.com",
 					     "token": {
-						   "type": "refresh"
+						   "type": "refresh",
 					       "token": "1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc",
 					       "url": "https://accounts.google.com/o/oauth2/token"}}}]]
     S: [["connected", {}]]
