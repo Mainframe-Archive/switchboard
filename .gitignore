@@ -4,6 +4,7 @@ deps/
 log/
 _rel/
 .imapswitchboard.plt
+.switchboard.plt
 erl_crash.dump
 switchboard.tar.gz
 

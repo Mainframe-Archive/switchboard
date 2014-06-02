@@ -320,14 +320,14 @@ start_app(App) ->
 %% @private
 %% @doc Run all eunit tests.
 test_all() ->
-    ?MODULE:test(),
-    switchboard_jmap:test(),
-    switchboard_accounts_tests:test(),
-    switchboard_idler_tests:test(),
-    switchboard_operator_tests:test(),
-    switchboard_sockets_tests:test(),
-    switchboard_util:test(),
-    imap_tests:test().
+    ok = ?MODULE:test(),
+    ok = switchboard_jmap:test(),
+    ok = switchboard_accounts_tests:test(),
+    ok = switchboard_idler_tests:test(),
+    ok = switchboard_operator_tests:test(),
+    ok = switchboard_sockets_tests:test(),
+    ok = switchboard_util:test(),
+    ok = imap_tests:test().
 
 
 %% @private
