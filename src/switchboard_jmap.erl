@@ -46,11 +46,16 @@
          websocket_info/3,
          websocket_terminate/3]).
 
+%% NB: Currently the join values must be different.
+%% Potential Message ID: INBOX!1?msgid
+-define(MESSAGE_JOINER, $?).
+-define(MAILBOX_JOINER, $!).
 
 -record(state, {connspec = none :: imap:connspec() | none,
                 auth = none :: imap:auth() | none,
                 owner = true :: boolean(),
                 idle_mailboxes = [] :: [binary()]}).
+
 
 %%==============================================================================
 %% Cowboy Websocket Handler Callbacks
@@ -77,10 +82,11 @@ websocket_handle(Data, Req, State) ->
 
 
 %% @private
-websocket_info({new, {Account, Mailbox}, Item}, Req, State) ->
-    Reply = {<<"newMessage">>,
-             [{item, Item}, {account, Account}, {mailbox, Mailbox}],
-             undefined},
+websocket_info({new, {_, Mailbox}, Item}, Req, State) ->
+    MailboxId = mailbox_name_to_id(State, Mailbox),
+    Resp = [{mailboxId, MailboxId},
+            {messageId, message_id(MailboxId, proplists:get_value(uid, Item))}],
+    Reply = {<<"newMessage">>, Resp, undefined},
     lager:info("Received new msg: ~p", [Item]),
     {reply, {text, encode([Reply])}, Req, State};
 websocket_info(Info, Req, State) ->
@@ -172,7 +178,7 @@ erl_to_jmap({Method, Args, ClientID}) ->
 -spec jmap(#state{}, jmap()) ->
     {#state{}, jmap()}.
 %% connect
-jmap(State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
+jmap(#state{auth=none} = State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
     case jmap_connect_parse_args(Args) of
         {ok, {ConnSpec, Auth}} ->
             Username = imap:auth_to_username(Auth),
@@ -188,10 +194,29 @@ jmap(State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
         {error, _} ->
             {State, err(<<"badArgs">>, JMAPCall)}
     end;
+jmap(#state{auth=Auth} = State, {<<"connect">>, _, _} = JMAPCall) when Auth =/= none ->
+    {State, err(<<"alreadyConnected">>, JMAPCall)};
 
 %% idle
-jmap(#state{auth=Auth} = State,
-     {<<"idle">>, Args, ClientID} = JMAPCall) when Auth =/= none ->
+jmap(#state{auth=Auth} = State, {<<"idle">>, _, _} = JMAPCall)
+  when Auth =/= none ->
+    idle(State, JMAPCall);
+jmap(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall)
+  when Auth =/= none ->
+    get_mailboxes(State, JMAPCall);
+jmap(#state{auth=Auth} = State, {<<"getMessageList">>, _, _} = JMAPCall)
+  when Auth =/= none ->
+    get_message_list(State, JMAPCall);
+jmap(#state{auth=Auth} = State, {<<"getMessages">>, _, _} = JMAPCall)
+  when Auth =/= none ->
+    get_messages(State, JMAPCall);
+jmap(State, JMAPCall) ->
+    {State, err(<<"unknownMethod">>, JMAPCall)}.
+
+
+%% @private
+%% @doc Start idling for new messages.
+idle(#state{auth=Auth} = State, {<<"idle">>, Args, ClientID} = JMAPCall) ->
     case proplists:get_value(<<"list">>, Args) of
         undefined ->
             {State, err(<<"noList">>, JMAPCall)};
@@ -217,23 +242,13 @@ jmap(#state{auth=Auth} = State,
             %% XXX better way to do this without the catch?
             catch switchboard:subscribe(new),
             {State#state{idle_mailboxes=Mailboxes}, {<<"idling">>, RespArgs, ClientID}}
-    end;
-
-jmap(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall)
-  when Auth =/= none ->
-    get_mailboxes(State, JMAPCall);
-jmap(#state{auth=Auth} = State, {<<"getMessageList">>, _, _} = JMAPCall)
-  when Auth =/= none ->
-    get_message_list(State, JMAPCall);
-jmap(State, JMAPCall) ->
-    {State, err(<<"unknownMethod">>, JMAPCall)}.
-
+    end.
 
 
 %% @private
 %% @doc Implements JMAP's getMailboxes.
 %% @reference <a href="http://jmap.io/#getmailboxes">`getMailboxes'</a>
-get_mailboxes(#state{auth=Auth} = State, JMAPCall) ->
+get_mailboxes(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall) ->
     switchboard:with_imap(imap:auth_to_username(Auth),
                           fun(IMAP) -> get_mailboxes(IMAP, State, JMAPCall) end).
 
@@ -325,6 +340,205 @@ get_message_list(IMAP, State, {_, _, ClientID} = JMAPCall, MailboxId) ->
     end.
 
 
+%% @private
+%% @doc Returns a list of messages from the server.
+get_messages(#state{auth=Auth} = State, JMAPCall) ->
+    switchboard:with_imap(imap:auth_to_username(Auth),
+                          fun(IMAP) -> get_messages(IMAP, State, JMAPCall) end).
+
+
+%% @private
+get_messages(IMAP, State, {_, Args, _} = JMAPCall) ->
+    get_messages(IMAP, State, JMAPCall,
+                 proplists:get_value(<<"ids">>, Args),
+                 proplists:get_value(<<"properties">>, Args)).
+
+%% @private
+get_messages(_, State, JMAPCall, undefined, _) ->
+    {State, err(<<"badArgs">>, JMAPCall)};
+get_messages(IMAP, State, {_, _, ClientID}, ReqIds, Properties) when is_list(ReqIds) ->
+    DecodedIds = [decode_message_id(Id) || Id <- ReqIds],
+    %% @todo support multiple mailboxes
+    lager:info("DecodedIds: ~p", [DecodedIds]),
+    Messages =
+        lists:foldr(
+          fun(MailboxId, Acc) ->
+                  Ids = proplists:get_all_values(MailboxId, DecodedIds),
+                  ok = select_by_id(State, MailboxId),
+                  {ok, Attrs} = fetch_attributes(Properties),
+                  {ok, {_, Resps}} =
+                      imap:call(IMAP, {uid, {fetch, Ids, Attrs}}),
+                  %%lager:info("Resps: ~p", [Resps]),
+                  Acc ++ [case fetch_properties(MailboxId, M, Properties) of
+                              {ok, Props} ->
+                                  Props
+                          end || M <- imap:clean(Resps)]
+          end, [], proplists:get_keys(DecodedIds)),
+    {State, {<<"messages">>, [{state, <<"TODO">>},
+                              {list, Messages}],
+             ClientID}}.
+
+
+%% <b>`getMessages' Properties:</b>
+%%
+%% <dl>
+%%   <dt>`conversationId'</dt>
+%%     <dd>Not implemented.</dd>
+%%   <dt>`mailboxId'</dt>
+%%     <dd>Implemented. Dependencies: none</dd>
+%%   <dt>`messageId'</dt>
+%%     <dd>Implemented. Dependencies: enveloep</dd>
+%%   <dt>`rawUrl'</dt>
+%%     <dd>Not implemented. Dependencies: BODY.PEEK[]</dd>
+%%   <dt>`isUnread'</dt>
+%%     <dd>Not implemented. Dependencies: FLAGS -- ! (\Seen flag present)</dd>
+%%   <dt>`isFlagged'</dt>
+%%     <dd>Implemented, I think</dd>
+%%   <dt>`isDraft'</dt>
+%%     <dd>Not implemented. Dependencies: FLAGS?</dd>
+%%   <dt>`hasAttachment'</dt>
+%%     <dd>Not implemented. Dependencies: BODYSTRUCTURE</dd>
+%%   <dt>`labels'</dt>
+%%     <dd>Not implemented. http://tools.ietf.org/html/rfc5788</dd>
+%%   <dt>`from'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`to'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`cc'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`bcc'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`replyTo'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`subject'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`date'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`size'</dt>
+%%     <dd>Implemented. Dependencies: ENVELOPE</dd>
+%%   <dt>`preview'</dt>
+%%     <dd>Not implemented. Dependencies: BODY[TEXT]</dd>
+%%   <dt>`textBody'</dt>
+%%     <dd>Implemented. Dependencies: BODY[TEXT]</dd>
+%%   <dt>`htmlBody'</dt>
+%%     <dd>Not implemented. Dependencies: BODY[] ? </dd>
+%%   <dt>`body'</dt>
+%%     <dd>Not implemented. Dependencies: ?</dd>
+%%   <dt>`attachments'</dt>
+%%     <dd>Not implemented. Dependencies: BODY[] ? AND it operates recursively</dd>
+%%   <dt>`attachmentMessages'</dt>
+%%     <dd>Not implemented. Dependencies: BODY[] ? AND it operates recursively</dd>
+%% </dl>
+%% @todo switch `envelope' fields to use rfc2822 header? More flexible, not necessary?
+
+
+%% @private
+%% @doc Returns the minimal `FETCH' attributes necessary to get all properties.
+-spec fetch_attributes([proplists:property()]) ->
+    {ok, [binary()]} | {error, _}.
+fetch_attributes(Properties) ->
+    fetch_attributes(Properties, sets:new()).
+
+fetch_attributes([], Acc) ->
+    {ok, sets:to_list(Acc)};
+fetch_attributes([Prop | Rest], Acc) when Prop =:= <<"mailboxId">>
+  orelse Prop =:= <<"messageId">> ->
+    fetch_attributes(Rest, Acc);
+fetch_attributes([<<"rawUrl">> | _], _) ->
+    {error, rawUrlNotSupported};
+fetch_attributes([Prop | Rest], Acc) when Prop =:= <<"unread">>
+  orelse Prop =:= <<"isFlagged">> ->
+    fetch_attributes(Rest, sets:add_element(<<"FLAGS">>, Acc));
+fetch_attributes([<<"isDraft">> | _], _) ->
+    {error, isDraftNotSupported};
+fetch_attributes([<<"hasAttachment">> | Rest], Acc) ->
+    fetch_attributes(Rest, sets:add_element(<<"BODYSTRUCTURE">>, Acc));
+fetch_attributes([<<"labels">> | _], _) ->
+    {error, labelsNotSupported};
+fetch_attributes([Prop | Rest], Acc) when Prop =:= <<"from">> orelse
+  Prop =:= <<"to">> orelse Prop =:= <<"cc">> orelse Prop =:= <<"bcc">> orelse
+  Prop =:= <<"replyTo">> orelse Prop =:= <<"subject">> orelse Prop =:= <<"date">> ->
+    fetch_attributes(Rest, sets:add_element(<<"ENVELOPE">>, Acc));
+fetch_attributes([<<"size">> | Rest], Acc) ->
+    fetch_attributes(Rest, sets:add_element(<<"RFC822.SIZE">>, Acc));
+fetch_attributes([<<"textBody">> | Rest], Acc) ->
+    fetch_attributes(Rest, sets:add_element(<<"BODY.PEEK[TEXT]">>, Acc));
+fetch_attributes([<<"body">> | Rest], Acc) ->
+    %% @todo add html part fetch
+    %% @todo with this system, how can the text part be only fetched as necessary
+    fetch_attributes(Rest, sets:add_element(<<"BODY.PEEK[TEXT]">>, Acc));
+fetch_attributes([<<"raw">> | Rest], Acc) ->
+    fetch_attributes(Rest, sets:add_element(<<"BODY.PEEK[]">>, Acc));
+fetch_attributes(_, _) ->
+    {error, unknownProp}.
+
+
+%% @private
+%% @doc Extract the provided properties from the fetched data.
+fetch_properties(MailboxId, {fetch, Fetched}, Props) ->
+    fetch_properties(message_id(MailboxId, proplists:get_value(uid, Fetched)),
+                     Fetched, Props, []).
+
+fetch_properties(_, _, [], Acc) ->
+    {ok, Acc};
+fetch_properties(MessageId, Fetched, [<<"mailboxId">> | Rest], Acc) ->
+    {MailboxId, _} = decode_message_id(MessageId),
+    fetch_properties(MailboxId, Fetched, Rest, [{mailboxId, MailboxId} | Acc]);
+fetch_properties(MessageId, Fetched, [<<"messageId">> | Rest], Acc) ->
+    fetch_properties(MessageId, Fetched, Rest, [{messageId, MessageId} | Acc]);
+fetch_properties(MessageId, Fetched, [<<"isFlagged">> | Rest], Acc) ->
+    throw(unimplemented),
+    fetch_properties(MessageId, Fetched, Rest, [{messageId, MessageId} | Acc]);
+fetch_properties(MessageId, Fetched, [<<"from">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {from, addresses_to_jmap(proplists:get_value(from, Envelope))},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"to">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {to, addresses_to_jmap(proplists:get_value(to, Envelope))},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"cc">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {cc, addresses_to_jmap(proplists:get_value(cc, Envelope))},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"bcc">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {bcc, addresses_to_jmap(proplists:get_value(bcc, Envelope))},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"replyTo">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {replyTo, addresses_to_jmap(proplists:get_value(replyto, Envelope))},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"subject">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {subject, proplists:get_value(subject, Envelope)},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"date">> | Rest], Acc) ->
+    Envelope = proplists:get_value(envelope, Fetched),
+    Prop = {date, proplists:get_value(date, Envelope)},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"size">> | Rest], Acc) ->
+    Prop = {size, proplists:get_value(rfc822size, Fetched)},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"textBody">> | Rest], Acc) ->
+    Prop = {textBody, proplists:get_value(textbody, Fetched)},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]);
+fetch_properties(MessageId, Fetched, [<<"raw">> | Rest], Acc) ->
+    Prop = {raw, proplists:get_value(body, Fetched)},
+    fetch_properties(MessageId, Fetched, Rest, [Prop | Acc]).
+
+
+-spec addresses_to_jmap([{address, proplists:property()}]) ->
+    [[proplists:property()]] | null.
+addresses_to_jmap(undefined) ->
+    null;
+addresses_to_jmap([]) ->
+    null;
+addresses_to_jmap(Addresses) ->
+    [Address || {address, Address} <- Addresses].
+
+
+
 %% @doc Select a mailbox using the provided jmap mailbox id.
 %% Returns an error if the UIDValidity doesn't match.
 -spec select_by_id(pid(), binary()) ->
@@ -335,7 +549,8 @@ select_by_id(#state{auth=Auth}, MailboxId) ->
 
 select_by_id(IMAP, MailboxId) when is_pid(IMAP) ->
     case catch decode_mailbox_id(MailboxId) of
-        {'EXIT', Reason} ->
+        {'EXIT', _Reason} ->
+            %% XXX - losing Reason
             {error, nomailbox};
         {Mailbox, UIDValidity} ->
             case imap:call(IMAP, {select, Mailbox}) of
@@ -375,22 +590,34 @@ mailbox_name_to_id(State, Name) ->
 message_id(MailboxId, Uid) when is_integer(Uid) ->
     message_id(MailboxId, integer_to_binary(Uid));
 message_id(MailboxId, Uid) when is_binary(Uid) ->
-    <<MailboxId/binary, $u, Uid/binary>>.
+    %% XXX - currently using `?' and `!' as delimiters. Need to make sure that they're IMAP savvy.
+    <<MailboxId/binary, ?MESSAGE_JOINER, Uid/binary>>.
 
 
+%% @private
+-spec decode_message_id(binary()) ->
+    {binary(), non_neg_integer()}.
+decode_message_id(MessageId) ->
+    [MailboxId, Uid] = binary:split(MessageId, <<?MESSAGE_JOINER>>),
+    {MailboxId, binary_to_integer(Uid)}.
+
+
+%% @private
 %% @doc Encode a mailboxId from the mailbox name and UID validity number.
 -spec mailbox_id(binary(), binary() | integer()) ->
     binary().
 mailbox_id(MailboxName, UIDValidity) when is_integer(UIDValidity) ->
     mailbox_id(MailboxName, integer_to_binary(UIDValidity));
 mailbox_id(MailboxName, UIDValidity) when is_binary(UIDValidity)  ->
-    <<MailboxName/binary, $!, UIDValidity/binary>>.
+    <<MailboxName/binary, ?MAILBOX_JOINER, UIDValidity/binary>>.
 
 
+%% private
+%% @doc Decode a mailboxId into the mailbox and Uid.
 -spec decode_mailbox_id(binary()) ->
     {binary(), non_neg_integer()}.
 decode_mailbox_id(MailboxId) ->
-    [Mailbox, UIDValidityBin] = binary:split(MailboxId, <<$!>>),
+    [Mailbox, UIDValidityBin] = binary:split(MailboxId, <<?MAILBOX_JOINER>>),
     {Mailbox, binary_to_integer(UIDValidityBin)}.
 
 
@@ -456,7 +683,8 @@ suite_test_() ->
       [fun get_mailboxes_assertions/1,
        fun idle_assertions/1,
        fun select_by_id_assertions/1,
-       fun get_message_list_assertions/1]}].
+       fun get_message_list_assertions/1,
+       fun get_messages_assertions/1]}].
 
 %% @private
 %% @doc Assertions for `encode/1' and `decode/1'.
@@ -576,5 +804,43 @@ get_message_list_assertions(State) ->
                        [{<<"mailboxId">>, InboxID}],
                        <<"1">>}),
     [?_assertMatch(L when is_list(L), proplists:get_value(<<"messageIds">>, Args))].
+
+
+%% @private
+get_messages_assertions(State) ->
+    InboxID = mailbox_name_to_id(State, <<"INBOX">>),
+    {State, {<<"messageList">>, ListArgs, <<"1">>}} =
+     get_message_list(State,
+                      {<<"getMessageList">>,
+                       [{<<"mailboxId">>, InboxID}],
+                       <<"1">>}),
+    MessageIds = lists:sublist(proplists:get_value(<<"messageIds">>, ListArgs), 2),
+    %% [MessageId | _] = MessageIds,
+    {State, {<<"messages">>, MsgArgs, <<"2">>}} =
+        get_messages(State, {<<"getMessages">>,
+                             [{<<"ids">>, MessageIds},
+                              {<<"properties">>, [<<"mailboxId">>,
+                                                  <<"messageId">>,
+                                                  <<"subject">>,
+                                                  <<"date">>,
+                                                  <<"size">>,
+                                                  <<"textBody">>]}],
+                             <<"2">>}),
+    lager:info("MsgArgs: ~p", [MsgArgs]),
+    Messages = proplists:get_value(list, MsgArgs),
+    lager:info("Messages: ~p", [Messages]),
+    [{"get_message_list should return message ids in its Resp.",
+      ?_assertNotEqual(undefined, MessageIds)},
+     {"get_message_list shouldn't return an empty list.",
+      ?_assertNotEqual([], MessageIds)},
+     {"There should be a list messages in MsgArgs",
+      ?_assert(is_list(Messages))},
+     {"Test the return values.",
+      lists:foldr(
+        fun(Message, Acc) ->
+                [?_assertNotEqual(undefined, proplists:get_value(Key, Message))
+                 || Key <- [messageId, mailboxId, subject, date, size]] ++ Acc
+        end, [], Messages)},
+     ?_assertNotEqual(undefined, MsgArgs)].
 
 -endif.

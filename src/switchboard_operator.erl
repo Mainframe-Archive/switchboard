@@ -187,7 +187,7 @@ update_uid_internal(#state{account=Account,
                            mailbox=Mailbox,
                            last_uid=LastUid} = State) ->
     {ok, Uid} = current_uid(Account, Mailbox),
-    lager:debug("UID: ~p, LastUid: ~p", [Uid, LastUid]),
+    %% lager:debug("UID: ~p, LastUid: ~p", [Uid, LastUid]),
     if LastUid =/= none ->
             {ok, {_, Emails}} = imap:call(switchboard:where(Account, active),
                                      {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
@@ -195,7 +195,7 @@ update_uid_internal(#state{account=Account,
              fun({fetch, Data}) ->
                      switchboard:publish(new, {new, {Account, Mailbox}, Data})
              end, lists:map(fun imap:clean/1, Emails));
-            % lager:info("New Emails: ~p", [Emails]);
+       %% lager:info("New Emails: ~p", [Emails]);
        true -> ok
     end,
     State#state{last_uid=Uid}.

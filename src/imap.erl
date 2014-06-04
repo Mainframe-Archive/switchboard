@@ -60,6 +60,7 @@
          recv/0, recv/1,
          clean/1,
          clean_list/1,
+         get_parts_by_type/2, get_parts_by_type/3,
          auth_to_username/1,
          auth_to_props/1]).
 
@@ -126,8 +127,8 @@
 
 %% opt() specifies an option that the imap process can be started with -- see start_link
 -type opt() :: {init_callback, fun(() -> ok)}
-             | {post_init_callback, fun(() -> ok)}
-             | {cmds, [{cmd, cmd()}]}.
+    | {post_init_callback, fun(() -> ok)}
+    | {cmds, [{cmd, cmd()}]}.
 
 %% response() is passed into the applicable commands dispatch fun
 -type response() :: {'*' | '+' | 'OK' | 'NO' | 'BAD', imap_term()}.
@@ -135,15 +136,15 @@
 
 %% cmd() specifies a valid command that can be issued via call or cast
 -type cmd() :: {login, auth()}
-             | list |  {list, binary(), binary()}
-             | {status, mailbox()} | {status, mailbox(), [binary()]}
-             | {examine, mailbox()}
-             | {select, mailbox()}
-             | {search, iodata()}
-             | {fetch, seqset()} | {fetch, seqset(), [binary()]}
-             | {uid, {fetch, seqset()}} | {uid, {fetch, seqset(), [binary()]}}
-             | noop
-             | idle.
+    | list |  {list, binary(), binary()}
+    | {status, mailbox()} | {status, mailbox(), [binary()]}
+    | {examine, mailbox()}
+    | {select, mailbox()}
+    | {search, iodata()}
+    | {fetch, seqset()} | {fetch, seqset(), [binary()]}
+    | {uid, {fetch, seqset()}} | {uid, {fetch, seqset(), [binary()]}}
+    | noop
+    | idle.
 
 %% cmd_opt() specifies an optional setting for a command
 %% The dispatch key refers to a dispatch function that is called with
@@ -157,7 +158,8 @@
 -type mailbox() :: binary().
 
 %% Sequence Sets
--type seqset() :: '*' | integer() | {integer() | none, integer() | none}.
+-type seqset() :: '*' | integer() | [integer()]
+    | {integer() | none, integer() | none}.
 
 %% imap_term() a single post-parse imap token
 -type imap_term() :: binary()               % Atom
@@ -376,6 +378,36 @@ clean({'*', [<<"LIST">>, NameAttrs, {string, Delim}, {string, Name}]}) ->
             {delimiter, Delim},
             {name, Name}]}.
 
+
+%% @doc Returns the fetch parts by type.
+get_parts_by_type({fetch, Props}, Type) ->
+    case proplists:get_value(body, Props) of
+        undefined ->
+            {error, no_body};
+        Body ->
+            case proplists:get_value(parts, Body) of
+                undefined ->
+                    {error, no_parts};
+                Parts ->
+                    {ok,
+                     lists:filter(
+                       fun(Part) ->
+                               proplists:get_value(type, Part) =:= Type
+                       end, Parts)}
+            end
+    end.
+
+get_parts_by_type(Fetch, Type, SubType) ->
+    case get_parts_by_type(Fetch, Type) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Parts} ->
+            {ok,
+             lists:filter(
+               fun(Part) -> proplists:get_value(subtype, Part) =:= SubType end, Parts)}
+    end.
+
+
 %% @doc Clean list command responses, returning an easier to deal with list.
 %% NB: this will discard non-`list' responses.
 -spec clean_list({ok, {_, [_]}}) ->
@@ -501,7 +533,7 @@ handle_cast(_Request, State) ->
 %% @private
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
-    %% ?LOG_DEBUG("Received: ~p", [Data]),
+    %% lager:info("Received: ~p", [Data]),
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
@@ -577,6 +609,7 @@ dispatch_to_ref(Ref) ->
     #state{}.
 churn_buffer(#state{tokenize_state=TokenizeState, parse_state=ParseState} = State) ->
     {Result, TokenizeState2, ParseState2} = decode_line(TokenizeState, ParseState),
+    %% lager:info("Result: ~p", [Result]),
     churn_buffer(State#state{tokenize_state=TokenizeState2, parse_state=ParseState2},
                  Result).
 
@@ -706,9 +739,6 @@ quote_wrap_binary(Bin) ->
 
 %% @private
 %% @doc Returns the list as imap command tokens.
-%%
-%% I don't much like how I'm building commands...
-
 -spec list_to_imap_list(binary() | [binary()]) ->
     binary() | [binary()].
 list_to_imap_list(List) when is_list(List) ->
@@ -718,9 +748,15 @@ list_to_imap_list(Term) ->
 
 
 %% @private
-%% @doc returns the list of command tokens associated with the sequence set
+%% @doc returns the list of command tokens associated with the sequence set.
+%% See the type specification of seqset for it's various options.
 -spec seqset_to_list(seqset()) ->
     iodata().
+seqset_to_list([Head | Rest]) ->
+    lists:foldl(
+      fun(Id, Acc) ->
+              <<Acc/binary, $,, (integer_to_binary(Id))/binary>>
+     end, integer_to_binary(Head), Rest);
 seqset_to_list({none, Stop}) ->
     <<$:, (integer_to_binary(Stop))/binary>>;
 seqset_to_list({'*', Stop}) ->
@@ -801,6 +837,8 @@ clean_props([<<"ENVELOPE">>,
     clean_props(Rest, [{envelope, Envelope} | Acc]);
 clean_props([<<"BODY">>, '[', ']', {string, Body} | Rest], Acc) ->
     clean_props(Rest, [{body, Body} | Acc]);
+clean_props([<<"BODY">>, '[', <<"TEXT">>, ']', {string, Body} | Rest], Acc) ->
+    clean_props(Rest, [{textbody, Body} | Acc]);
 clean_props([<<"BODY">>, Body | Rest], Acc) ->
     clean_props(Rest, [{body, clean_body(Body)} | Acc]).
 
@@ -809,16 +847,16 @@ clean_props([<<"BODY">>, Body | Rest], Acc) ->
 %% @doc Clean the provided body.
 %% @todo this typing is worthless -- actually sit down and define the types
 %% @todo currently doesn't support multipart params
+%% @todo continue expansion to support mime types
 
 -spec clean_body(_) ->
     [_].
 clean_body(Body) ->
     clean_body(Body, []).
-
 -spec clean_body(_, [_]) ->
     [_].
 clean_body([{string, Type}, {string, SubType}, Params, Id,
-            Description, {string, Encoding}, Size, _What], []) ->
+            Description, {string, Encoding}, Size | _What], []) ->
     [{type, Type},
      {subtype, SubType},
      {params, clean_imap_props(Params)},
@@ -826,9 +864,9 @@ clean_body([{string, Type}, {string, SubType}, Params, Id,
      {description, Description},
      {encoding, Encoding},
      {size, Size}];
+%% @todo why multiple formats?
 clean_body([{string, MultiPartType}], Acc) ->
     [{multipart, MultiPartType}, {parts, lists:reverse(Acc)}];
-
 clean_body([Head | Rest], Acc) ->
     clean_body(Rest, [clean_body(Head) | Acc]).
 
@@ -867,7 +905,7 @@ clean_addresses([[RawName, _, {string, MailBox}, {string, Host}] | Rest], Acc) -
     Address = [{email, <<MailBox/binary, $@, Host/binary>>}],
     clean_addresses(Rest,
                     [{address, case RawName of
-                                   nil -> Address;
+                                   nil -> [{name, <<"">>} | Address];
                                    {string, Name} -> [{name, Name} | Address]
                                end} |
                      Acc]).
@@ -989,12 +1027,12 @@ pop_token(<<D, Rest/binary>>, {literal, ByteAcc}) when D >= 48, D < 58 ->
     pop_token(Rest, {literal, <<ByteAcc/binary, D>>});
 pop_token(Binary, {literal, Bytes, LiteralAcc}) when is_integer(Bytes) ->
     case Binary of
-	<<Literal:Bytes/binary, Rest/binary>> ->
-	    {{string, <<LiteralAcc/binary, Literal/binary>>}, Rest, none};
-	_ ->
-	    %% If the binary is too short, accumulate it in the state
-	    pop_token(<<>>, {literal, Bytes - size(Binary),
-			     <<LiteralAcc/binary, Binary/binary>>})
+        <<Literal:Bytes/binary, Rest/binary>> ->
+            {{string, <<LiteralAcc/binary, Literal/binary>>}, Rest, none};
+        _ ->
+            %% If the binary is too short, accumulate it in the state
+            pop_token(<<>>, {literal, Bytes - size(Binary),
+                             <<LiteralAcc/binary, Binary/binary>>})
     end;
 
 %% Quoted Strings
@@ -1015,6 +1053,12 @@ pop_token(Binary, _) ->
 
 %% @private
 %% @doc Parse the flat list of tokens into a data structurej
+%% @todo
+% 21:46:48.402 [info] Received: <<"* 12 FETCH (UID 12)\r\n* 13 FETCH (U">>
+% 21:46:48.403 [info] Result: [<<"*">>,12,<<"FETCH">>,[<<"UID">>,12]]
+% 21:46:48.403 [info] Result: none
+% 21:46:48.403 [info] Received: <<"ID 13)\r\n* 14 FETCH (UID 14)\r\n">>
+% 21:46:48.403 [info] Result: [<<"*">>,13,<<"FETCH">>,none,<<"UID">>,13]
 -spec parse([token()]) ->
     {[imap_term()] | none, [token()], [imap_term()]}.
 parse(Tokens) ->

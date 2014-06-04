@@ -170,24 +170,7 @@ Each call of "idle" replaces the list of mailboxes being monitored.
 	S: [["idling", {"failed": ["NON-EXISTENT"]}]]
 
     # The server will send unsolicited responses
-	# Warning: this message format is going to change to get more jmap-y
-    S: [["newMessage", {"item": {
-	                      "uid": 12,
-	                      "envelope": {
-						    "date": "Fri, 30 May 2014 15:24:03 -0700",
-							"subject": "Ahoy!",
-							"from": {"address": {"name": "Errol", "email": "errol@gmail.com"}},
-						    "sender": {"address": {"name": "Errol", "email":"errol@gmail.com"}},
-							"replyto":{"address":{"name":"Errol","email":"errol@gmail.com"}},
-							"to":{"address":{"email":"mail.dispatch.test@gmail.com"}},
-							"cc": [], "bcc": [], "inreplyto": [],
-							"messageid":"<etPan.53890503.7e0c57b1.113@Thomass-MacBook-Pro.local>"},
-							"flags": [],
-							"internaldate": "30-May-2014 22:24:05 +0000",
-							"rfc822size": 3885},
-					      "account": "mail.dispatch.test@gmail.com",
-						  "mailbox":"INBOX"}]]
-
+    S: [["newMessage", {"mailboxId": "INBOX!1", "messageId": "INBOX!1?17"}]]
 
 ### [`getMailboxes`](http://jmap.io/#getmailboxes)
 
@@ -195,8 +178,8 @@ Returns a list of all mailbox objects.
 
     C: [["getMailboxes", {}]]
     S: [["mailboxes", {"state": 79153751884907,
-	                   "list": [{"name": "INBOX",
-					            "id": "INBOX-1"}]}]]
+                       "list": [{"name": "INBOX",
+                                 "id": "INBOX-1"}]}]]
 
     C: [["getMailboxes", {"state": 79153751884907}]]
     S: [["mailboxes", {"state": 79153751884907}]]
@@ -205,10 +188,30 @@ TODO - ACL Permissions
 
 ### [`getMessageList`](http://jmap.io/#getmessagelist)
 
-    C: [["getMessageList", {mailboxId: "INBOX-1"}]]
-	S: [["messageList", {messageIds: ["INBOX-1u1", "INBOX-1u2", "INBOX-1u3"]}]]
+    C: [["getMessageList", {"mailboxId": "INBOX!1"}]]
+    S: [["messageList", {"messageIds": ["INBOX!1?1", "INBOX!1?2", "INBOX!1?3"]}]]
 
 TODO: All of the options, searching.
+
+
+### [`getMessages`](http://jmap.io/#getmessages)
+
+    C: [["getMessages", {"ids": ["INBOX!1?3", "INBOX!1?4"],
+	                     "properties": ["subject", "to", "from", "textBody"]}]]
+    S: [["messages", {"state": "TODO",
+	                  "list": [
+					    {
+						  "textBody": "--bcaec5171e1f3f872b04fa044bc7\r\nContent-Type: text/plain; [...]",
+						  "from":[{"name": "YouTube", "email": "noreply@youtube.com"}]
+						  "to": [{"name": "", "email": "mail.dispatch.test@gmail.com"}],
+						  "subject": "Pokemon dubstep, Harry Potter in cyberpunk and more '90s remixes on YouTube"
+						}, {
+						  "textBody": "--047d7b86e65445cc6c04fa33c13a\r\nContent-Type: text/plain; [...]",
+						  "from": [{"name": "Google+", "email": "noreply-68620fcd@plus.google.com"}],
+						  "to": [{"name": "", "email": "mail.dispatch.test@gmail.com"}],
+						  "subject": "Top suggested Google+ Pages for you"
+						}]}]]
+
 
 ### Example Client
 

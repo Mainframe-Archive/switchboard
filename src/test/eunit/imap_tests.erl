@@ -86,7 +86,8 @@ start_dispatch() ->
 clean_suite_test_() ->
     [clean_body_assertions(),
      clean_address_assertions(),
-     clean_assertions()].
+     clean_assertions(),
+     get_parts_by_type_assertions()].
 
 clean_body_assertions() ->
     Body = imap:clean_body(?BODY),
@@ -121,6 +122,14 @@ clean_assertions() ->
                    imap:clean(?LIST))].
 
 
+get_parts_by_type_assertions() ->
+    Fetched = imap:clean(?FETCH),
+    [?_assertMatch({ok, L} when L =/= [],
+                   imap:get_parts_by_type(Fetched, <<"TEXT">>)),
+     ?_assertMatch({ok, L} when L =/= [],
+                   imap:get_parts_by_type(Fetched, <<"TEXT">>, <<"PLAIN">>))].
+
+
 %% Commands
 cmd_test_() ->
     [?_assertEqual([<<"UID">>, <<"FETCH">>, <<"1:9">>, <<"full">>],
@@ -129,7 +138,8 @@ cmd_test_() ->
 
 seqset_to_list_assertions() ->
     [?_assertEqual(<<"1">>, imap:seqset_to_list(1)),
-     ?_assertEqual(<<"1:9">>, imap:seqset_to_list({1, 9}))].
+     ?_assertEqual(<<"1:9">>, imap:seqset_to_list({1, 9})),
+     ?_assertEqual(<<"3,99,1">>, imap:seqset_to_list([3, 99, 1]))].
 
 
 %% Tokenize
@@ -235,7 +245,7 @@ auth_to_props() ->
                                        {RefreshToken, RefreshUrl}}))].
 
 %%==============================================================================
-%% Live tests [dispatchonme@gmail.com]
+%% Live tests [mail.dispatch.test@gmail.com]
 %%==============================================================================
 
 -ifdef(LIVE_TEST).
@@ -279,5 +289,6 @@ dispatch_list_assertions({_, Imap}) ->
     [?_assertMatch({ok, _}, ListResp1),
      ?_assertMatch({'*', _}, List1),
      ?_assertMatch({list, _}, imap:clean(List1))].
+
 
 -endif.

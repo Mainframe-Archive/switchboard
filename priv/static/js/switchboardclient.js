@@ -34,6 +34,7 @@ function SwitchboardClient (url, connspec) {
     // Open cmd's callbacks are inserted in cmds, keyed by the `tag`.
     var cmds = {};
 
+
     /******************
      * Internal Helpers
      */
@@ -65,17 +66,23 @@ function SwitchboardClient (url, connspec) {
     }.bind(this);
 
 
+    this.idle = function (mailboxes, callback) {
+	return this.sendCmds([makeCmd("idle", {list: mailboxes}, callback)]);
+    }.bind(this);
+
     this.getMailboxes = function (callback) {
 	return this.sendCmds([makeCmd("getMailboxes", [], callback)]);
     }.bind(this);
 
-    this.idle = function(mailboxes, callback) {
-	return this.sendCmds([makeCmd("idle", {list: mailboxes}, callback)]);
-    }.bind(this);
-
-    this.getMessageList = function(mailboxId, callback) {
+    this.getMessageList = function (mailboxId, callback) {
 	var args = {mailboxId: mailboxId};
 	return this.sendCmds([makeCmd("getMessageList", args, callback)]);
+    }.bind(this);
+
+    this.getMessages = function(ids, properties, callback) {
+	var args = {ids: ids,
+		    properties: properties || ["textBody"]};
+	return this.sendCmds([makeCmd("getMessages", args, callback)]);
     }.bind(this);
 
 
@@ -123,5 +130,9 @@ function SwitchboardClient (url, connspec) {
 	    }
 	}
 	console.log(responses);
+    }
+
+    conn.onclose = function(e) {
+	console.log("Socket closing");
     }
 };

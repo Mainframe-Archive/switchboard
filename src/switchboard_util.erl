@@ -42,7 +42,8 @@
 
 -export([take_first/2,
          get_values/2,
-         await_death/1, await_death/2]).
+         await_death/1, await_death/2,
+         reprop/2]).
 
 
 %%==============================================================================
@@ -103,6 +104,19 @@ await_death(Pid, Timeout) ->
         false ->
             ok
     end.
+
+
+%% @doc Alter a proplist's keys according to Mapping. If a key isn't present
+%% in Mapping it will be dropped.
+%%
+%% XXX - Broken for Strings as keys!
+reprop(PropList, Mapping) when is_list(Mapping) ->
+    [reprop(PropList, M) || M <- Mapping];
+reprop(PropList, {InProp, OutProp}) ->
+    {OutProp, proplists:get_value(InProp, PropList)};
+reprop(PropList, Prop) ->
+    reprop(PropList, {Prop, Prop}).
+
 
 
 %%==============================================================================
