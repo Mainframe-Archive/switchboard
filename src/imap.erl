@@ -61,7 +61,7 @@
          clean/1,
          clean_list/1,
          get_parts_by_type/2, get_parts_by_type/3,
-         auth_to_username/1,
+         auth_to_account/1,
          auth_to_props/1]).
 
 
@@ -429,12 +429,12 @@ clean_list({ok, {_, Resps}}) ->
 
 %% @doc Returns the username for the given authorization. This is used
 %% to simplify process registration.
--spec auth_to_username(auth()) ->
-    binary().
-auth_to_username({plain, Username, _}) ->
-    Username;
-auth_to_username({xoauth2, Username, _}) ->
-    Username.
+-spec auth_to_account(auth()) ->
+    account().
+auth_to_account({plain, Account, _}) ->
+    Account;
+auth_to_account({xoauth2, Account, _}) ->
+    Account.
 
 
 %% @doc Returns the auth as a jsx:encodable proplist.

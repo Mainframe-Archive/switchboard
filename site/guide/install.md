@@ -20,7 +20,7 @@ startup/control script. You can run it without arguments to see a list
 of its commands.
 
 Because you won't be building the application, the
-[client section of the guide]({{site.baseurl}}/guide/client) will
+[client section of the guide]({{site.baseurl}}/guide/interfaces) will
 probably be most interesting to you next. Check out the Switchboard
 Erlang API or Example Client section for directions on how to start
 fetching emails.
@@ -59,4 +59,5 @@ make
 
 Please create an issue if there were any problems.
 
-Next up: [connecting a client]({{site.baseurl}}/guide/client).
+Next up:
+[worker and client interfaces]({{site.baseurl}}/guide/interfaces).

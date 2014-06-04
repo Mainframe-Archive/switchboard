@@ -11,7 +11,7 @@
                   stdlib,
                   inets,
                   gproc,
-		  cowboy,
+                  cowboy,
                   jsx,
                   ssl,
                   eunit
