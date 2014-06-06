@@ -8,7 +8,7 @@
     <pre>
       var client = new SwitchboardClient(URL, ConnSpec);
       client.getMailboxes(function(resp) { console.log(resp); });
-      client.idle(["INBOX"], function(resp) { console.log("IDLE successful"); })
+      client.watchMailboxes(["INBOX"], function(resp) { console.log("Watching"); })
     </pre>
     <script type="text/javascript" src="/static/js/switchboardclient.js"></script>
   </body>

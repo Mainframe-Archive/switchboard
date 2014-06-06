@@ -325,7 +325,6 @@ test_all() ->
     ok = switchboard_accounts_tests:test(),
     ok = switchboard_idler_tests:test(),
     ok = switchboard_operator_tests:test(),
-    ok = switchboard_sockets_tests:test(),
     ok = switchboard_util:test(),
     ok = imap_tests:test().
 

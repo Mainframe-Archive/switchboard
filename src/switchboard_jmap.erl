@@ -54,7 +54,7 @@
 -record(state, {connspec = none :: imap:connspec() | none,
                 auth = none :: imap:auth() | none,
                 owner = true :: boolean(),
-                idle_mailboxes = [] :: [binary()]}).
+                watched_mailboxes = [] :: [binary()]}).
 
 
 %%==============================================================================
@@ -196,11 +196,9 @@ jmap(#state{auth=none} = State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
     end;
 jmap(#state{auth=Auth} = State, {<<"connect">>, _, _} = JMAPCall) when Auth =/= none ->
     {State, err(<<"alreadyConnected">>, JMAPCall)};
-
-%% idle
-jmap(#state{auth=Auth} = State, {<<"idle">>, _, _} = JMAPCall)
+jmap(#state{auth=Auth} = State, {<<"watchMailboxes">>, _, _} = JMAPCall)
   when Auth =/= none ->
-    idle(State, JMAPCall);
+    watch_mailboxes(State, JMAPCall);
 jmap(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall)
   when Auth =/= none ->
     get_mailboxes(State, JMAPCall);
@@ -215,15 +213,16 @@ jmap(State, JMAPCall) ->
 
 
 %% @private
-%% @doc Start idling for new messages.
-idle(#state{auth=Auth} = State, {<<"idle">>, Args, ClientID} = JMAPCall) ->
+%% @doc Start watching for new messages, send a .
+watch_mailboxes(#state{auth=Auth} = State,
+                {<<"watchMailboxes">>, Args, ClientID} = JMAPCall) ->
     case proplists:get_value(<<"list">>, Args) of
         undefined ->
             {State, err(<<"noList">>, JMAPCall)};
         [] ->
             {State, err(<<"emptyList">>, JMAPCall)};
         Mailboxes when is_list(Mailboxes) ->
-            %% XXX - race condition here, depending on if name registration
+            %% @todo - race condition here, depending on if name registration
             %% occurs immediately
             Username = imap:auth_to_username(Auth),
             MonitoredSet = sets:from_list(switchboard:mailbox_monitors(Username)),
@@ -239,9 +238,10 @@ idle(#state{auth=Auth} = State, {<<"idle">>, Args, ClientID} = JMAPCall) ->
                     Failed ->
                         [{failed, Failed}]
                 end,
-            %% XXX better way to do this without the catch?
+            %% @todo better way to do this without the catch?
             catch switchboard:subscribe(new),
-            {State#state{idle_mailboxes=Mailboxes}, {<<"idling">>, RespArgs, ClientID}}
+            {State#state{watched_mailboxes=Mailboxes},
+             {<<"watchingMailboxes">>, RespArgs, ClientID}}
     end.
 
 
@@ -359,7 +359,6 @@ get_messages(_, State, JMAPCall, undefined, _) ->
 get_messages(IMAP, State, {_, _, ClientID}, ReqIds, Properties) when is_list(ReqIds) ->
     DecodedIds = [decode_message_id(Id) || Id <- ReqIds],
     %% @todo support multiple mailboxes
-    lager:info("DecodedIds: ~p", [DecodedIds]),
     Messages =
         lists:foldr(
           fun(MailboxId, Acc) ->
@@ -681,7 +680,7 @@ suite_test_() ->
       fun imap_setup/0,
       fun imap_teardown/1,
       [fun get_mailboxes_assertions/1,
-       fun idle_assertions/1,
+       fun watch_mailboxes_assertions/1,
        fun select_by_id_assertions/1,
        fun get_message_list_assertions/1,
        fun get_messages_assertions/1]}].
@@ -782,18 +781,20 @@ select_by_id_assertions(State) ->
 
 
 %% @private
-%% @doc Assertions for the idle command.
+%% @doc Assertions for the `watch_mailboxes' command.
 %% @todo Write tests for `failed` mailboxes.
-idle_assertions(#state{auth=Auth} = State) ->
+watch_mailboxes_assertions(#state{auth=Auth} = State) ->
     %% XXX - these config vals should be passed through the opts...
     Account = imap:auth_to_username(Auth),
-    IdleMailboxes = [<<"INBOX">>],
-    [IdleMailbox] = IdleMailboxes,
-    State2 = State#state{idle_mailboxes = IdleMailboxes},
-    [?_assertMatch({State2, {<<"idling">>, [{}], <<"1">>}},
-                   jmap(State, {<<"idle">>, [{<<"list">>, IdleMailboxes}], <<"1">>})),
-     ?_assertMatch(P when is_pid(P), switchboard:await(Account, {idler, IdleMailbox})),
-     ?_assertEqual(IdleMailboxes, switchboard:mailbox_monitors(Account))].
+    WatchMailboxes = [<<"INBOX">>],
+    [WatchMailbox] = WatchMailboxes,
+    State2 = State#state{watched_mailboxes = WatchMailboxes},
+    [?_assertMatch({State2, {<<"watchingMailboxes">>, [{}], <<"1">>}},
+                   jmap(State, {<<"watchMailboxes">>,
+                                [{<<"list">>, WatchMailboxes}], <<"1">>})),
+     ?_assertMatch(P when is_pid(P), switchboard:await(Account,
+                                                       {idler, WatchMailbox})),
+     ?_assertEqual(WatchMailboxes, switchboard:mailbox_monitors(Account))].
 
 %% @private
 get_message_list_assertions(State) ->
@@ -826,9 +827,7 @@ get_messages_assertions(State) ->
                                                   <<"size">>,
                                                   <<"textBody">>]}],
                              <<"2">>}),
-    lager:info("MsgArgs: ~p", [MsgArgs]),
     Messages = proplists:get_value(list, MsgArgs),
-    lager:info("Messages: ~p", [Messages]),
     [{"get_message_list should return message ids in its Resp.",
       ?_assertNotEqual(undefined, MessageIds)},
      {"get_message_list shouldn't return an empty list.",

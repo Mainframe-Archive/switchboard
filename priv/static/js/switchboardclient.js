@@ -9,11 +9,11 @@
  *
  */
 var ConnSpec = {host: "imap.gmail.com",
-		port: 993,
-		auth: {
-		    type: "plain",
-		    username: "mail.dispatch.test@gmail.com",
-		    password: "i>V99JuMVEs;"}};
+                port: 993,
+                auth: {
+                    type: "plain",
+                    username: "mail.dispatch.test@gmail.com",
+                    password: "i>V99JuMVEs;"}};
 
 // The Switchboard application's default client endpoint.
 var URL = "ws://127.0.0.1:8080/clients";
@@ -44,12 +44,12 @@ function SwitchboardClient (url, connspec) {
      * adding a tag if not specified.
      */
     function makeCmd (method, args, callback, tagArg) {
-	var tagArg = tagArg === undefined ? tag++ : tagArg;
-	if (callback) {
-	    cmds[tagArg] = callback;
-	}
-	var cmd = [method, args, tagArg];
-	return cmd;
+        var tagArg = tagArg === undefined ? tag++ : tagArg;
+        if (callback) {
+            cmds[tagArg] = callback;
+        }
+        var cmd = [method, args, tagArg];
+        return cmd;
     }
 
 
@@ -61,28 +61,29 @@ function SwitchboardClient (url, connspec) {
      * `sendCmds` prepares and sends off a list of commands.
      */
     this.sendCmds = function (cmds) {
-	conn.send(JSON.stringify(cmds));
-	return this;
+        conn.send(JSON.stringify(cmds));
+        return this;
     }.bind(this);
 
 
-    this.idle = function (mailboxes, callback) {
-	return this.sendCmds([makeCmd("idle", {list: mailboxes}, callback)]);
+    this.watchMailboxes = function (mailboxes, callback) {
+        return this.sendCmds([makeCmd("watchMailboxes",
+                                      {list: mailboxes}, callback)]);
     }.bind(this);
 
     this.getMailboxes = function (callback) {
-	return this.sendCmds([makeCmd("getMailboxes", [], callback)]);
+        return this.sendCmds([makeCmd("getMailboxes", [], callback)]);
     }.bind(this);
 
     this.getMessageList = function (mailboxId, callback) {
-	var args = {mailboxId: mailboxId};
-	return this.sendCmds([makeCmd("getMessageList", args, callback)]);
+        var args = {mailboxId: mailboxId};
+        return this.sendCmds([makeCmd("getMessageList", args, callback)]);
     }.bind(this);
 
     this.getMessages = function(ids, properties, callback) {
-	var args = {ids: ids,
-		    properties: properties || ["textBody"]};
-	return this.sendCmds([makeCmd("getMessages", args, callback)]);
+        var args = {ids: ids,
+                    properties: properties || ["textBody"]};
+        return this.sendCmds([makeCmd("getMessages", args, callback)]);
     }.bind(this);
 
 
@@ -95,11 +96,11 @@ function SwitchboardClient (url, connspec) {
      * specification.
      */
     conn.onopen = function() {
-	this.sendCmds([makeCmd("connect", connspec)])
+        this.sendCmds([makeCmd("connect", connspec)])
     }.bind(this);
 
     conn.onerror = function(error) {
-	console.log(error);
+        console.log(error);
     }
 
     /**
@@ -110,29 +111,29 @@ function SwitchboardClient (url, connspec) {
      * as the only argument.
      */
     conn.onmessage = function(e) {
-	var responses = JSON.parse(e.data)
-	for (var i = 0; i < responses.length; i++) {
-	    switch (responses[i].length) {
-	      case 2:
-		break;
-	      case 3:
-		var tag = responses[i][2]
-		if (tag in cmds) {
-		    try {
-			cmds[tag](responses[i]);
-		    }
-		    catch (e) {
-			console.log(e);
-		    }
-		    delete cmds[tag];
-		}
-		break;
-	    }
-	}
-	console.log(responses);
+        var responses = JSON.parse(e.data)
+        for (var i = 0; i < responses.length; i++) {
+            switch (responses[i].length) {
+              case 2:
+                break;
+              case 3:
+                var tag = responses[i][2]
+                if (tag in cmds) {
+                    try {
+                        cmds[tag](responses[i]);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                    delete cmds[tag];
+                }
+                break;
+            }
+        }
+        console.log(responses);
     }
 
     conn.onclose = function(e) {
-	console.log("Socket closing");
+        console.log("Socket closing");
     }
 };

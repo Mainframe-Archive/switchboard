@@ -156,18 +156,18 @@ Using XOAUTH2:
 					       "url": "https://accounts.google.com/o/oauth2/token"}}}]]
     S: [["connected", {}]]
 
-### `idle`
+### `watchMailboxes`
 
-The `idle` command tells the server to create IMAP connections for the
+The `watchMailboxes` command tells the server to create IMAP connections for the
 set of mailboxe names listed. It is not a part of the jmap spec.
 If the server failed to create any connections, it will include a
 `failed` key in the response args with a list of failed mailbox names.
 
-Each call of "idle" replaces the list of mailboxes being monitored.
+Each call of "watchMailboxes" replaces the list of mailboxes being monitored.
 
 
-    C: [["idle", {"list": ["INBOX", "NON-EXISTENT"]}]]
-	S: [["idling", {"failed": ["NON-EXISTENT"]}]]
+    C: [["watchMailboxes", {"list": ["INBOX", "NON-EXISTENT"]}]]
+    S: [["watchingMailboxes", {"failed": ["NON-EXISTENT"]}]]
 
     # The server will send unsolicited responses
     S: [["newMessage", {"mailboxId": "INBOX!1", "messageId": "INBOX!1?17"}]]
