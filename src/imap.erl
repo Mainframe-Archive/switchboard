@@ -1053,12 +1053,14 @@ pop_token(Binary, _) ->
 
 %% @private
 %% @doc Parse the flat list of tokens into a data structurej
-%% @todo
-% 21:46:48.402 [info] Received: <<"* 12 FETCH (UID 12)\r\n* 13 FETCH (U">>
-% 21:46:48.403 [info] Result: [<<"*">>,12,<<"FETCH">>,[<<"UID">>,12]]
-% 21:46:48.403 [info] Result: none
-% 21:46:48.403 [info] Received: <<"ID 13)\r\n* 14 FETCH (UID 14)\r\n">>
-% 21:46:48.403 [info] Result: [<<"*">>,13,<<"FETCH">>,none,<<"UID">>,13]
+%% @end
+
+%% todo
+%% 21:46:48.402 [info] Received: <<"* 12 FETCH (UID 12)\r\n* 13 FETCH (U">>
+%% 21:46:48.403 [info] Result: [<<"*">>,12,<<"FETCH">>,[<<"UID">>,12]]
+%% 21:46:48.403 [info] Result: none
+%% 21:46:48.403 [info] Received: <<"ID 13)\r\n* 14 FETCH (UID 14)\r\n">>
+%% 21:46:48.403 [info] Result: [<<"*">>,13,<<"FETCH">>,none,<<"UID">>,13]
 -spec parse([token()]) ->
     {[imap_term()] | none, [token()], [imap_term()]}.
 parse(Tokens) ->

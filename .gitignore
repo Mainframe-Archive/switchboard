@@ -1,4 +1,4 @@
-# erlang
+# Erlang
 ebin/
 deps/
 log/
@@ -11,8 +11,4 @@ switchboard.tar.gz
 .erlang.mk.packages.v1
 relx
 
-# Documentation
-doc/*.html
-doc/edoc-info
-doc/erlang.png
-doc/stylesheet.css
+site/_site

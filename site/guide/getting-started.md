@@ -1,111 +1,29 @@
-# Getting Started
+---
+layout: guide
+---
+
+## Getting Started
 
 - [Core Application](#markdown-header-switchboard-core)
 - [Client Protocol](#markdown-header-switchboard-client-protocol)
 
-## Switchboard Core
+### Switchboard Core
 
 This section is for people who want to develop on the core Switchboard
 application.
 
 Note: through the rest of this section, `./switchboard` will refer
 to the release's control script, located in `_rel/bin/switchboard`
-if you're building from source'.
+if you're building from source.
 
-### Switchboard Erlang API
-
-The quickest way to interact with Switchboard is through the application's
-Erlang API. Assuming Switchboard is running, `./switchboard remote_console`
-will attach a remote console to the running application. Here's
-an example session:
-
-
-    %% Subscribe to messages of new emails.
-	true = switchboard:subscribe(new).
-
-    %% List the active accounts. Assuming no one's been here first, there should be none.
-    [] = switchboard:accounts().
-
-	%% Add a new account. (XOAUTH2 is also supported)
-	switchboard:add({ssl, <<"imap.gmail.com">>, 993},
-	                {plain, <<"youremail@gmail.com">>, <<"yourpassword">>},
-					[<<"INBOX">>]).
-
-    %% List the now active account.
-    [<<"youremail@gmail.com">>] = switchboard:accounts().
-
-    %% Send yourself an email, wait a minute, then flush the message queue to see it.
-	flush().
-
-    %% Stop the account from being monitored.
-	ok = switchboard:stop(<<"youremail@gmail.com">>).
-
-    %% Unsubscribe from new messages.
-	true = switchboard:unsubscribe(new).
-
-
-See `src/switchboard.erl` for more detailed documentation of the
-public interfaces.
-
-### Finding and Building the Documentation
-
-Documentation of the core modules is provided as in-source comments
-using [edoc](http://www.erlang.org/doc/apps/edoc/chapter.html)
-formatting. If you'd rather have the documentation as html, run `make
-docs`, and then point your browser to `doc/index.html`.
-
-The `switchboard` module provides the public Erlang interface for the
-Switchboard application, and exposes the controls for adding and
-removing accounts, and subscribing to event channels via
-[`uwiger/gproc`](https://github.com/uwiger/gproc).
-
-`imap` is a partial imap client. Though not yet mature,
-it's written as a single `gen_server` so that it can
-easily be dropped into other projects.
-
-By default, documentation is not created for private functions.
-Please open an issue if this causes any problems.
-
-### Connecting a Shell
-
-You can attach an Erlang shell to a running Switchboard application via
-
-    ./switchboard/remote_console
-
-From the erlang shell, try
-
-    switchboard:accounts().  %% -> [Accounts]
-
-Note: `switchboard:accounts/0` returns the list of accounts which
-are actively being monitored. If no accounts have been added, this
-is the empty list.
-
-### Finding and Running Tests
-
-At the moment, all tests are written in EUnit and must be called
-from a running Switchboard application. Most tests are written in
-a module separate from the code which they are testing. These
-modules are kept in `src/test/eunit`.
-
-For example, `switchboard:test().` run at the Erlang console
-will run all of the tests in the `switchboard` module.
-`switchboard:test_all()` will run all tests listed in the function call --
-hopefully all of the eunit tests in the application.
-
-The `TEST` and `LIVE_TEST` provide boolean controls for knocking
-out tests, keeping them out of compiled production code.
-
-Tests for a module are automatically run by `reloader.erl` when a file
-is reloaded (credit for `reloader.erl` goes to `mochi/mochiweb`).
-
-## Switchboard Client Protocol
+### Switchboard Client Protocol
 
 This section is for people who want to write a Switchboard client, or
 learn how Swithcboard communicates with clients.
 
 TODO describe differences between client / worker
 
-### A Subset of JMAP
+#### A Subset of JMAP
 
 At the moment, the Switchboard client protocol is a subset of
 [jmap](http://jmap.io). The first 8 chapters of the jmap spec provides
@@ -123,7 +41,7 @@ commands. The examples below should be a bit more clean than my made
 up pseudocode.
 
 
-### `connect`
+#### `connect`
 
 A high level description is provided
 [here](http://jmap.io/#transport-and-authentication), but
@@ -156,7 +74,7 @@ Using XOAUTH2:
 					       "url": "https://accounts.google.com/o/oauth2/token"}}}]]
     S: [["connected", {}]]
 
-### `watchMailboxes`
+#### `watchMailboxes`
 
 The `watchMailboxes` command tells the server to create IMAP connections for the
 set of mailboxe names listed. It is not a part of the jmap spec.
@@ -172,7 +90,7 @@ Each call of "watchMailboxes" replaces the list of mailboxes being monitored.
     # The server will send unsolicited responses
     S: [["newMessage", {"mailboxId": "INBOX!1", "messageId": "INBOX!1?17"}]]
 
-### [`getMailboxes`](http://jmap.io/#getmailboxes)
+#### [`getMailboxes`](http://jmap.io/#getmailboxes)
 
 Returns a list of all mailbox objects.
 
@@ -186,7 +104,7 @@ Returns a list of all mailbox objects.
 
 TODO - ACL Permissions
 
-### [`getMessageList`](http://jmap.io/#getmessagelist)
+#### [`getMessageList`](http://jmap.io/#getmessagelist)
 
     C: [["getMessageList", {"mailboxId": "INBOX!1"}]]
     S: [["messageList", {"messageIds": ["INBOX!1?1", "INBOX!1?2", "INBOX!1?3"]}]]
@@ -194,7 +112,7 @@ TODO - ACL Permissions
 TODO: All of the options, searching.
 
 
-### [`getMessages`](http://jmap.io/#getmessages)
+#### [`getMessages`](http://jmap.io/#getmessages)
 
     C: [["getMessages", {"ids": ["INBOX!1?3", "INBOX!1?4"],
 	                     "properties": ["subject", "to", "from", "textBody"]}]]
@@ -213,7 +131,7 @@ TODO: All of the options, searching.
 						}]}]]
 
 
-### Example Client
+#### Example Client
 
 An example client written in javascript is located in
 [`client/switchboardclient.js`](../priv/static/js/switchboardclient.js). The

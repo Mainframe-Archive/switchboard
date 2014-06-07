@@ -1,0 +1,14 @@
+<div class="header container">
+  <div class="logo">
+    <a href="{{site.baseurl}}/"><img src="{{site.baseurl}}/images/switchboard_logo.svg"></a>
+  </div>
+
+  <div class="menu">
+    <ul>
+      <li><a class="{% if page.url contains '/guide' %}active{% endif %}" href="{{site.baseurl}}/guide/install">Getting Started</a></li>
+      <li><a href="{{site.baseurl}}/doc" target="_blank">Docs</a></li>
+      <li><a class="{% if page.url contains '/about' %}active{% endif %}" href="{{site.baseurl}}/about">About</a></li>
+      <li class="github"><a href="https://github.com/thusfresh/switchboard">Github</a></li>
+    </ul>
+  </div>
+</div>

@@ -1,5 +1,4 @@
-Contributing
-============
+## Contributing
 
 Thanks for your interest in contributing to Switchboard. This document
 provides a set of guidelines adapted from
@@ -9,8 +8,7 @@ contributions out there. If you have questions, you can ask them on the [mailing
 lists](#markdown-header-discussion).
 
 
-Introduction
-------------
+### Introduction
 
 This document describes the usages and rules to follow when contributing
 to this project.
@@ -25,14 +23,6 @@ repository `upstream` refers to the official repository for this project.
 Following this document will ensure prompt merging of your work in the
 `master` branch of the project.
 
-
-Reporting bugs
---------------
-
-Switchboard uses Github issues for bug reporting. Bug reports should
-include the steps for recreating the bug and relevant logs - kept in
-`_rel/log`.
-
 Before implementing a new feature, you should create a new issue for
 discussion on your plans. The feature might have been rejected
 already, or the implementation might already be decided. If your idea
@@ -40,19 +30,7 @@ is less concrete, you can also use the mailing lists for discussion
 on your idea.
 
 
-Discussion
-----------
-
-There is a general mailing list at <switchboard@librelist.com>. This
-mailing list is meant for topics which aren't related to development
-of the Switchboard application.
-
-For Switchboard development discussion that goes further than issue
-reporting, you can use <switchboard-dev@librelist.com>.
-
-
-Cloning
--------
+### Cloning
 
 You must fork the project's repository to your GitHub account by clicking
 on the `Fork` button.
@@ -68,8 +46,7 @@ $ cd $PROJECT
 $ git remote add upstream $UPSTREAM_URL
 ```
 
-Branching
----------
+### Branching
 
 Before starting working on the code, you must update to `upstream`. The
 project is always evolving, and as such you should always strive to keep
@@ -115,8 +92,7 @@ If you later need to switch back to an existing branch `$BRANCH`, you can use:
 $ git checkout $BRANCH
 ```
 
-Source editing
---------------
+### Source editing
 
 The following rules must be followed:
  *  Indentation uses spaces for tabs, with 4 columns per indentation.
@@ -126,8 +102,8 @@ The following rules should be followed:
  *  Write small functions whenever possible
  *  Avoid having too many clauses containing clauses containing clauses
 
-Committing
-----------
+
+### Committing
 
 You must ensure that all commits pass all tests and do not have extra
 Dialyzer warnings.
@@ -166,8 +142,8 @@ all lines smaller than 80 characters. You should explain what the commit
 does, what references you used and any other information that helps
 understanding your work.
 
-Submitting the pull request
----------------------------
+
+### Submitting the pull request
 
 You must push your branch `$BRANCH` to GitHub, using the following command:
 

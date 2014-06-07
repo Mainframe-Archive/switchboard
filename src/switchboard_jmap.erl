@@ -247,7 +247,8 @@ watch_mailboxes(#state{auth=Auth} = State,
 
 %% @private
 %% @doc Implements JMAP's getMailboxes.
-%% @reference <a href="http://jmap.io/#getmailboxes">`getMailboxes'</a>
+%%
+%% <a href="http://jmap.io/#getmailboxes">`getMailboxes'</a>
 get_mailboxes(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall) ->
     switchboard:with_imap(imap:auth_to_username(Auth),
                           fun(IMAP) -> get_mailboxes(IMAP, State, JMAPCall) end).
@@ -314,7 +315,8 @@ get_mailbox(IMAP, Mailbox) ->
 
 %% @private
 %% @doc Implements JMAP's getMessageList.
-%% @reference <a href="http://jmap.io/#getmessagelist">`getMailboxes'</a>
+%%
+%% <a href="http://jmap.io/#getmessagelist">`getMailboxes'</a>
 -spec get_message_list(#state{}, jmap()) ->
     {#state{}, jmap()}.
 get_message_list(#state{auth=Auth} = State, JMAPCall) ->
@@ -782,7 +784,7 @@ select_by_id_assertions(State) ->
 
 %% @private
 %% @doc Assertions for the `watch_mailboxes' command.
-%% @todo Write tests for `failed` mailboxes.
+%% @todo Write tests for `failed' mailboxes.
 watch_mailboxes_assertions(#state{auth=Auth} = State) ->
     %% XXX - these config vals should be passed through the opts...
     Account = imap:auth_to_username(Auth),

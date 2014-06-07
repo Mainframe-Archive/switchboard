@@ -171,9 +171,10 @@ register_callback(Account, Type) ->
 %% the `active' IMAP client for `dispatchonme@gmail.com'.
 %%
 %% @see key_for/2
+%% @end
 
--spec where(any(), keytype()) ->
-    pid().
+%%-spec where(any(), keytype()) ->
+%%    pid().
 where(Account, Type) ->
     gproc:where(key_for(Account, Type)).
 
