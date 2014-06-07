@@ -1,0 +1,19 @@
+# Site settings
+title: Switchboard
+email: switchboard@librelist.com
+description: "Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description."
+baseurl: "/switchboard"
+url: "http://yourdomain.com"
+
+# Build settings
+markdown: kramdown
+permalink: pretty
+highlighter: pygments
+
+# Set default layouts, allowing external files to be included
+defaults:
+  -
+    scope:
+      path: "guide"
+    values:
+      layout: "guide"

@@ -1,0 +1,668 @@
+/** * Eric Meyer's Reset CSS v2.0 (http://meyerweb.com/eric/tools/css/reset/) * http://cssreset.com */html, body, div, span, applet, object, iframe,h1, h2, h3, h4, h5, h6, p, blockquote, pre,a, abbr, acronym, address, big, cite, code,del, dfn, em, img, ins, kbd, q, s, samp,small, strike, strong, sub, sup, tt, var,b, u, i, center,dl, dt, dd, ol, ul, li,fieldset, form, label, legend,table, caption, tbody, tfoot, thead, tr, th, td,article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary,time, mark, audio, video {	margin: 0;	padding: 0;	border: 0;	font-size: 100%;	font: inherit;	vertical-align: baseline;}/* HTML5 display-role reset for older browsers */article, aside, details, figcaption, figure, footer, header, hgroup, menu, nav, section {	display: block;}body {	line-height: 1;}ol, ul {	list-style: none;}blockquote, q {	quotes: none;}blockquote:before, blockquote:after,q:before, q:after {	content: '';	content: none;}table {	border-collapse: collapse;	border-spacing: 0;}
+
+h1 {font-family: 'Exo 2', Helvetica, sans-serif; font-size: 3.5em !important; color:#FFF;}
+h2 {font-family: 'Exo 2', Helvetica, sans-serif; font-size: 2.2em !important; color:#FFF;}
+h5 {font-family: 'Exo 2', Helvetica, sans-serif; font-size: 2em !important; color:#FFF;}
+h3 {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1.375em !important; line-height: 30px; color:#FFF;}
+h4 {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1.125em !important; line-height: 26px; color:#FFF;}
+p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1em !important; color:#FFF; line-height: 25px;}
+
+
+
+.container {width: 94%;}
+
+
+.headerMobile {
+     display: none;
+}
+
+
+.logo {
+	float: left;
+	display: inline-block;
+}
+
+.logo img {
+	width: 280px;
+	height: 54px;
+}
+
+.logoMobile {
+     margin: 0 auto;
+     text-align: center;
+     margin-top: 20px;
+}
+
+.logoMobile img {
+     width: 50%;    
+}
+
+.menu {
+	font-family: 'Exo 2', Helvetica, sans-serif;
+	float: right;
+	display: inline-block;
+	font-size: 20px;
+	line-height: 54px;
+}
+
+.menu a {
+	color: rgba(255,255,255,0.8);
+	text-decoration: none;
+}
+
+.menu a:hover {
+	color: rgba(255,255,255,1);
+	text-decoration: none;
+}
+
+.menu ul {
+	float: left;
+}
+.menu li {
+	float: left;
+	margin-left: 30px;
+}
+
+
+.menuMobile {
+     font-family: 'Exo 2', Helvetica, sans-serif;
+     font-size: 1em;
+     line-height: 54px;
+     text-align: center;
+}
+
+.menuMobile a {
+	color: rgba(255,255,255,0.8);
+	text-decoration: none;
+}
+
+.menuMobile a:hover {
+	color: rgba(255,255,255,1);
+	text-decoration: none;
+}
+
+.menuMobile li {
+	display: inline-block;
+	margin-left: 16px;
+}
+
+
+.active {color: rgba(255,255,255,1) !important;}
+
+.github {
+	font-family: 'Exo 2', Helvetica, sans-serif !important;
+	font-size: 20px;
+}
+
+.github a {
+	border: 1px solid;
+	padding: 5px 13px;
+	border-radius: 8px;
+}
+
+
+.header {
+	padding: 30px 0 0 0;
+}
+
+.intro {
+	background-image: url(../images/dotsIllustration.svg);
+	background-position: 50% 50%;
+	height: 540px;
+	margin-top: 30px;
+	background-repeat: no-repeat;
+}
+
+.intro.container {
+	width: 100%;
+}
+
+.intro h1 {margin-top: 120px; margin-bottom: 20px !important;}
+
+.button {
+	font-family: 'Source Sans Pro', Helvetica, sans-serif;
+	font-size: 16px;
+	letter-spacing: 4px;
+	font-weight: 400;
+	margin:  0 auto;
+	margin-top: 30px;
+}
+
+.button a {
+	color: #E1E6F0;
+	padding: 10px 30px;
+	background: #26827b;
+	border-radius: 25px;
+	border: 0px solid;
+	line-height: 38px;
+}
+
+.button a:hover {
+	text-decoration: none;
+	background:#1a7a73 ;
+}
+
+.line { 
+	width: 220px;
+	margin: 0 auto;
+	margin-bottom: 20px;
+    height: 1px;
+    background: #022e48;
+    background: -moz-linear-gradient(left, #022e48 0%, #ffffff 50%, #022e48 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, right top, color-stop(0%,#022e48), color-stop(50%,#ffffff), color-stop(100%,#022e48)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(left, #022e48 0%,#ffffff 50%,#022e48 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(left, #022e48 0%,#ffffff 50%,#022e48 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(left, #022e48 0%,#ffffff 50%,#022e48 100%); /* IE10+ */
+	background: linear-gradient(to right, #022e48 0%,#ffffff 50%,#022e48 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#022e48', endColorstr='#022e48',GradientType=1 ); /* IE6-9 */
+	opacity: .4;
+}
+
+.heading h2{
+  margin-bottom: 30px;
+}
+
+.heading h2 {
+	margin-top: 60px;
+	line-height: 50px;
+}
+
+/*.heading h4 {
+	margin: 15px 0;
+}*/
+
+.gradient {
+	background: -webkit-linear-gradient(#033350, #022e48); /* For Safari 5.1 to 6.0 */
+	background: -o-linear-gradient(#033350, #022e48); /* For Opera 11.1 to 12.0 */
+	background: -moz-linear-gradient(#033350, #022e48); /* For Firefox 3.6 to 15 */
+	background: linear-gradient(#033350, #022e48); /* Standard syntax */	
+}
+
+
+.graph {
+     margin: 0 auto;
+     position: relative;
+     width: 768px;
+     height: 901px;
+     background-image: url(../images/graph.svg);
+     background-size: contain;
+     background-repeat: no-repeat;
+     background-position: 50% 50%;
+}
+
+.graph h3 {
+     font-family: 'Source Sans Pro', Helvetica, sans-serif;
+     text-transform: uppercase;
+     letter-spacing: 5px;
+     font-size: 1.2em !important;
+}
+
+
+
+
+.connect {
+     text-align: right;
+     position: relative;
+     float: left;
+     width: 200px;
+     padding-top: 40px;
+     /*left: 0;*/
+}
+
+
+.listen {
+     text-align: left;
+     position: relative;
+     float: right;
+     width: 200px;
+     padding-top: 40px;
+}
+
+.push {
+	text-align: right;
+	position: relative;
+	margin-top: 254px;
+	float: left;
+    width: 200px;
+}
+
+.fetch {
+	text-align: left;
+	position: relative;
+	margin-top: 212px;
+    width: 200px;
+    float: right;
+}
+/*
+
+@media (max-width: 746px) {
+ 
+.receive {
+	top: -60px;
+	left: 82px;
+
+}
+
+.connect {
+	top: 200px;
+	left: -377px;
+
+}
+	
+}
+*/
+
+.usp {
+	margin-top: 120px;
+	margin-bottom:50px;
+}
+.usp img {
+	width: 100%;
+	min-width: 160px;
+	max-width: 250px;
+	height: auto;
+}
+
+.usp h3 {
+     margin: 25px 0 15px 0;
+     font-size: 1.2em !important;
+     text-transform: uppercase;
+     letter-spacing: 5px;
+}
+
+.usp p {margin-bottom: 50px;}
+
+.footer {
+	background: #0C0C0C;
+	height: 150px;
+	color: rgba(255,255,255,0.8);
+/*    position: absolute;
+    bottom: 0;
+    margin-bottom: -110px;
+    width: 100%;*/
+	
+}
+
+
+.footer a {
+	text-decoration: underline;
+	color: rgba(255,255,255,0.8);
+}
+
+.footer a:hover {
+	color:#23807a;
+}
+
+.footer p {
+	float: left;
+	margin: 37px 0;
+	color: rgba(255,255,255,0.8);
+}
+
+.footer img {
+	float: left;
+	margin: 45px 3%;
+}
+
+.footerBottom {
+	background: #0C0C0C;
+	height: 150px;
+	color: rgba(255,255,255,0.8);
+    position: absolute;
+    bottom: 0;
+    margin-bottom: -110px;
+    width: 100%;
+	
+}
+
+.footerBottom a {
+	text-decoration: underline;
+	color: rgba(255,255,255,0.8);
+}
+
+.footerBottom a:hover {
+	color:#23807a;
+}
+
+.footerBottom p {
+	float: left;
+	margin: 37px 0;
+	color: rgba(255,255,255,0.8);
+}
+
+.footerBottom img {
+	float: left;
+	margin: 45px 3%;
+}
+
+.shadow {
+	background: #02334f;
+	position: fixed;
+	width: 100%;
+	height: 110px;
+	box-shadow: 0 3px 29px -15px rgba(0,0,0, 0.5);
+	top: 0;
+	z-index: 11;
+}
+
+.sidebar {
+	position: absolute;
+	width: 22%;
+	height: 100%;
+	z-index: 8;
+}
+
+.sidebar ul {
+	padding: 0;
+}
+
+.sidebar ul li {
+	
+	text-align: right;
+	border-bottom: 1px solid #063753;
+}
+/*.sidebar ul li a.active {
+	padding: 10px 20px;
+	color: red !important;
+}*/
+
+.sidebar h2 {
+	font-size: 1.4em !important;
+	line-height: 1.4em;
+}
+
+.sidebar li a {
+	color:rgba(255,255,255,0.5);
+	display: block;
+	padding: 18px 40px;
+}
+
+.sidebar li a:hover {
+	color:rgba(255,255,255,1);
+	text-decoration: none;
+}
+
+.sidebar li a.active {
+	color:rgba(255,255,255,1);
+}
+.text {
+	position: relative;
+	margin-top: 110px;
+	padding: 30px 50px;
+	max-width: 700px;
+}
+
+.text ul {margin-top: 30px;}
+
+.bulletPoints3 a{
+    font-family: 'Source Sans Pro', Helvetica, sans-serif; 
+    font-weight: 300; 
+    font-size: 1.2em !important; 
+    color:rgba(255,255,255,0.5); 
+    line-height: 25px; 
+    text-decoration: none;
+}
+
+.bulletPoints3 a:hover {color: rgba(255,255,255,1);}
+
+/*.text ul li a{
+        font-family: 'Source Sans Pro', Helvetica, sans-serif; 
+     font-weight: 300; 
+     font-size: 1.2em !important; 
+     color:rgba(255,255,255,0.5); 
+     line-height: 25px; 
+     text-decoration: none;
+}
+
+.text ul li a:hover {color: rgba(255,255,255,1);}*/
+
+
+
+.text h2 {margin-bottom: 10px;}
+
+.text h3 {margin-top: 30px; font-weight: 600;}
+
+
+.text p {
+    margin-bottom: 20px;
+    margin-top: 20px;
+}
+
+code {
+    font-family: Monaco, monospace !important;
+    font-size: 0.8em !important;
+}
+/*
+.code {
+    background: #ebebeb;
+    color: #333;
+    line-height: 1.2em;
+    padding: 5px 8px;
+    border-radius: 3px;
+    font-family: Monaco, monospace;
+    min-width: 600px;
+    font-size: 0.95em;
+    word-wrap: break-word;
+}
+
+.text code {background: #ebebeb; color: #333; padding: 0px 4px; border-radius: 3px; font-family: Monaco, monospace; font-size: 0.95em;}
+
+.code span {color: #b84;}
+*/
+.code i {
+    font-family: Monaco, monospace;
+    font-style: italic;
+}
+
+.highlight {
+    padding: 5px 8px;
+    border-radius: 3px;
+}
+
+.wrapper {
+	background: #02283f;
+}
+
+.text-container {
+	margin-left: 22%;
+	background: #022e48;
+	width: 78%;
+}
+
+
+
+#core {
+  padding-top: 130px; margin-top: -100px;
+}
+
+em {text-transform: uppercase; font-weight: 600; font-size: 1.1em;}
+
+
+pre {
+  background: none !important;
+}
+
+#clientProtocol {
+  padding-top: 130px; margin-top: -100px;
+}
+
+.bulletPoints li {
+     display: inline-block;
+     /*border: 1px solid #26827b;
+     border-radius: 1em;
+     padding: 5px 15px;
+     margin-bottom: 10px;*/
+}
+
+.bulletPoints li:last-child {
+     margin-bottom: 0;
+}
+
+.bulletPoints {
+      position: relativ
+}
+
+.heading {
+  position: relative;
+}
+
+.howItWorks {
+     margin-top: 80px;
+}
+
+.howItWorks h2 {
+     margin-bottom: 50px;
+     border-bottom: 1px solid rgba(255,255,255,0.5);
+     padding-bottom: 20px;
+}
+
+
+
+
+.example1 {
+     margin-top: 280px;
+     margin-left: 70px;
+     width: 200px;
+     float: left;
+     display: inline-block;
+}
+
+
+
+.example2 {
+     margin-top: 415px;
+     margin-left: 29px;
+     width: 200px;
+     float: left;
+     display: inline-block;
+}
+
+.example3 {
+     margin-top: 280px;
+     margin-left: 32px;
+     width: 200px;
+     float: left;
+     display: inline-block;
+}
+
+.example1 h3, .example2 h3, .example3 h3 {
+     margin-bottom: 5px;    
+}
+.buttonBottom {
+     margin-bottom: 100px;
+}
+
+.titleBorder {
+     width: 66.66666667%;
+     margin-left: 16.66666667%;
+}
+
+
+@media only screen and (min-width: 940px) and (max-width: 1170px) {
+
+     .sidebar {
+          width: 28%;
+     }
+     
+     .text-container {
+          margin-left: 28%;
+          width: 72%;
+     }
+
+}
+
+@media only screen and (max-width: 768px) {
+
+     .sidebar {
+          width: 33%;
+     }
+     
+     .sidebar h2 {font-size: 1.2em !important; }
+     
+     .text-container {
+          margin-left: 33%;
+          width: 67%;
+     }
+     
+     .code {min-width: inherit; font-size: 0.9em;}
+
+}
+
+
+
+
+
+@media only screen and (min-width : 320px) and (max-width : 480px) {
+     
+     h1 {font-size: 2.2em !important;}
+     h3 {font-size: 1em !important; line-height: 1.4em !important;}
+
+     .header {
+          display: none;
+     }
+
+     .headerMobile {
+          display: block;    
+     }
+
+     .github {
+          font-size: 1em;  
+     }
+
+     .github a {
+          padding: 3px 8px;
+     }
+     
+     
+}
+
+
+.bulletPoints1 {
+    list-style-type: disc;
+    padding-left: 30px;
+    margin-top: 0 !important;
+    font-family: 'source sans pro', helvetica, sans-serif;
+    font-weight: lighter;
+    line-height: 20px;
+}
+
+.bulletPoints1 a, .bulletPoints2 a {text-decoration: none; color: #FFF !important;}
+.bulletPoints1 a:hover, .bulletPoints2 a:hover {text-decoration: underline; color: #FFF;}
+
+.bulletPoints2 {
+    list-style-type: circle;
+    padding-left: 60px;
+    font-family: 'source sans pro', helvetica, sans-serif;
+    font-weight: lighter;
+    line-height: 20px;
+    margin-top: 10px !important;
+    margin-bottom: 10px;
+}
+
+#installation {
+    padding-top: 130px; margin-top: -100px;
+}
+
+#overview {
+    padding-top: 130px; margin-top: -100px;
+}
+
+#push {
+    padding-top: 130px; margin-top: -100px;
+}
+
+#imageStorage {
+    padding-top: 130px; margin-top: -100px;
+}
+
+.contribute {
+    list-style-type: disc;
+    padding-left: 30px;
+    margin-top: 0 !important;
+    font-family: 'source sans pro', helvetica, sans-serif;
+    font-weight: lighter;
+    line-height: 20px;
+}
+.contribute a {
+    font-size: 1em !important;
+}
