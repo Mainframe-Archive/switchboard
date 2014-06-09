@@ -24,7 +24,7 @@ request. Here are the
 
 If you find a bug or issue in Switchboard, please let us know. To file
 a bug, go to the
-[issue tracker](https://github.com/thusfresh/switchboard) and create a
+[issue tracker](https://github.com/thusfresh/switchboard/issues?state=open) and create a
 new issue. Great bug reports include a clear description of what is
 not happening and what you expected to happen. Bug reports should
 include the steps for recreating the bug and relevant logs - kept in
