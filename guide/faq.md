@@ -27,7 +27,7 @@ verification](http://www.google.com/landing/2step/) without an
 For each account, one IMAP connection is created for sending commands,
 plus one IMAP connection for each mailbox to be monitored. This
 separation of responsibilites across IMAP connections allows for
-simpler management of the IMAP connections, thought at the cost of
+simpler management of the IMAP connections, though at the cost of
 [using multiple IMAP connections](https://support.google.com/mail/answer/97150?hl=en).
 
 ### Why not just IMAP+IDLE?
