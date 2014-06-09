@@ -77,7 +77,7 @@ require 'eventmachine'
 require 'json'
 
 EM.run {
-  ws = Faye::WebSocket::Client.new('ws://127.0.0.1:8080/clients') # we will use the default switchboard url -> read below for explanation.
+  ws = Faye::WebSocket::Client.new('ws://127.0.0.1:8080/clients') # this tutorial uses the default switchboard url -> read below for an explanation.
 
   ws.on :open do |event|
     p [:open]
