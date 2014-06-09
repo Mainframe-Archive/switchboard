@@ -54,7 +54,7 @@ have been left up to the implementer. `connect` accepts the `host` and
 login after connecting to the server. A `connected` response indicates
 that the connection and login was successful.
 
-Using `PLAIN` auth:
+Using `PLAIN` auth (fake credentials):
 
 {% highlight javascript %}
 C: [["connect", {"host": "imap.gmail.com",
@@ -66,14 +66,14 @@ C: [["connect", {"host": "imap.gmail.com",
 S: [["connected", {}]]
 {% endhighlight %}
 
-Using `XOAUTH2` auth:
+Using `XOAUTH2` auth (fake credentials):
 
 {% highlight javascript %}
 C: [["connect", {"host": "imap.gmail.com",
                  "port": 993,
 				 "auth": {
 				   "type": "xoauth2",
-				   "username": "dispatchonme@gmail.com",
+				   "username": "username@gmail.com",
 				     "token": {
 					   "type": "refresh",
 				       "token": "1/kif0yuTDHWu7UKtTCNtgDWTeoj_IYZM-SPmyxNiDCjc",
@@ -150,4 +150,4 @@ S: [["messages", {"state": "TODO",
                     }]}]]
 {% endhighlight %}
 
-Next up: [Switchboard]
+Next up: [examples]({{site.baseurl}}/guide/examples).

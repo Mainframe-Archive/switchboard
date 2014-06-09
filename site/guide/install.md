@@ -19,10 +19,11 @@ dumping you at the Erlang console. `switchboard/bin/switchboard` is the
 startup/control script. You can run it without arguments to see a list
 of its commands.
 
-Because you won't be building the application, the client section of
-[getting started](http://thusfresh.github.io/switchboard/guide/install/) 
-will probably be most interesting to you. Check out the Switchboard Erlang 
-API or Example Client section for directions on how to start fetching emails.
+Because you won't be building the application, the
+[client section of the guide]({{site.baseurl}}/guide/client) will
+probably be most interesting to you next. Check out the Switchboard
+Erlang API or Example Client section for directions on how to start
+fetching emails.
 
 
 ### From Source
@@ -58,4 +59,4 @@ make
 
 Please create an issue if there were any problems.
 
-Next up: [connecting a client]({site.baseurl}}/guide/client).
+Next up: [connecting a client]({{site.baseurl}}/guide/client).
