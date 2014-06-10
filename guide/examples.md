@@ -4,27 +4,27 @@ layout: guide
 
 ## Examples
 
-### Overview
-
-Switchboard [and JMAP] are young, so there are only two client
-implementations:
-
 {::comment}
 TODO - add python client
 {:/comment}
 
-- A javascript client located inkkkkk
-- A ruby client
+Switchboard allows developers to develop a wide variety of clients.
+This section will point you towards existing example clients, as well
+as walk you through how to write your own client in Ruby.
 
-Switchboard allows developers to develop a wide variety of clients. The 
-following sourcefile contains comments mapping out common components of a
-Switchboard client, and is a great reference for understanding how the
-protocol works.
+### Javascript Client
+
+Since the Switchboard protocol uses JSON over WebSockets, it's only fitting for
+there to be a JavaScript client. Switchboard comes with one.
 
 To try the client out, start the Switchboard application and point
-your browser at http://127.0.0.1:8080/jsclient - it should display 
-a page with some getting started commands. Open your browser's 
-javascript console and try them out.
+your browser at
+[http://127.0.0.1:8080/jsclient](http://127.0.0.1:8080/jsclient) - it
+should display a page with some getting started commands. Open your
+browser's javascript console and try them out.  The following
+sourcefile contains comments mapping out common components of a
+Switchboard client, and is a great reference for understanding how the
+protocol works.
 
 {::comment}
 ### Push Notifications
@@ -32,9 +32,9 @@ javascript console and try them out.
 
 ### Ruby Sample App Tutorial - Email Dropbox Uploader
 
-### Email 
-
-Follow this example tutorial to build your first `switchboard` client in Ruby. This simple example, to be run in the command line, syncs attachments from a user's emails to his or her Dropbox.
+Follow this example tutorial to build your first `switchboard` client
+in Ruby. This simple example, to be run in the command line, syncs
+attachments from a user's emails to his or her Dropbox.
 
 #### Setup
 
