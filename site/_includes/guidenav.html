@@ -1,9 +1,11 @@
 <div class="sidebar">
   <h2><ul>
+    <li><a class="{% if page.url contains '/guide/whatis' %}active{% endif %}" href="{{site.baseurl}}/guide/whatis">What is Switchboard</a></li>
     <li><a class="{% if page.url contains '/guide/install' %}active{% endif %}" href="{{site.baseurl}}/guide/install">Installation</a></li>
     <li><a class="{% if page.url contains '/guide/client' %}active{% endif %}" href="{{site.baseurl}}/guide/client">Client Interface</a></li>
     <li><a class="{% if page.url contains '/guide/examples' %}active{% endif %}" href="{{site.baseurl}}/guide/examples">Examples</a></li>
     <li><a class="{% if page.url contains '/guide/contributing' %}active{% endif %}" href="{{site.baseurl}}/guide/contributing">Contributing</a></li>
+    <li><a target="_blank" href="{{site.baseurl}}/doc">API Docs</a></li>
     <li><a class="{% if page.url contains '/guide/faq' %}active{% endif %}" href="{{site.baseurl}}/guide/faq">FAQ</a></li>
   </ul></h2>
 </div>
