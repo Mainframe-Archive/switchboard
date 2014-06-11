@@ -33,15 +33,15 @@ clarify.
 ### Example Client
 
 An example client written in JavaScript is located in
-[`client/switchboardclient.js`](../priv/static/js/switchboardclient.js). The
-sourcefile contains comments for common components of a Switchboard
-client, and is a useful reference for understanding how the protocol
-works.
+[client/switchboardclient.js](https://github.com/thusfresh/switchboard/blob/master/priv/static/js/switchboardclient.js).
+The sourcefile contains comments for common components of a
+Switchboard client, and is a useful reference for understanding how
+the protocol works.
 
-To try the client out, start the Switchboard application and point
-your browser [here](http://127.0.0.1:8080/jsclient). Your browser
-should render a page with some getting started commands. Go ahead and
-open your browser's JavaScript console and try them out.
+To try the client out, first start the Switchboard application and
+point your browser [here](http://127.0.0.1:8080/jsclient). Your
+browser should render a page with some getting started commands. Go
+ahead and open your browser's JavaScript console and try them out.
 
 ### Commands
 
