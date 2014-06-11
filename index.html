@@ -32,34 +32,25 @@ layout: index
 
 <div class="container text-center howItWorks">
   <h2 class="text-left titleBorder">See how it works</h2>
-  
+
   <div class="graph">
 
     <div class="row">
       <div class="connect">
         <h3>Connect</h3>
-        <p>A worker connects over the websocket interface to your email account.</p>
+        <p>Switchboard listens across all connected email accounts for new messages to arrive.</p>
       </div>
 
-      <div class="listen">
-        <h3>Listen</h3>
-        <p>Adds an account for Switchboard to listen for new emails.</p>
-      </div>
     </div>
 
     <div class="row">
       <div class="push">
         <h3>Push out</h3>
-        <p>When a new email arrives, Switchboard sends out a message to all listening workers.</p>
+        <p>When a new message arrives, Switchboard sends out a notification to all listening workers.</p>
       </div>
 
-      <div class="fetch">
-        <h3>Fetch data</h3>
-        <p>Workers process the email, from push notifications to web servers and postgres/database, 
-          optionally requesting additional data from the server.</p>
-      </div>
     </div>
-    
+
     <div class="row">
       <div class="example1">
         <h3>      Use Case #1</h3>
@@ -101,7 +92,7 @@ layout: index
     <div class="col-sm-4">
       <img src="{{site.baseurl}}/images/cloud.svg" alt="cloud">
       <h3>In the cloud</h3>
-      <p>Processes run in the cloud. Switchboard can help you avoid mobile OS backgrounding restrictions and heavy battery 
+      <p>Processes run in the cloud. Switchboard can help you avoid mobile OS backgrounding restrictions and heavy battery
         consumption, freeing up local memory and leaving you in control of the service.</p>
     </div>
     <div class="col-sm-4">
@@ -111,8 +102,8 @@ layout: index
         examples are provided on how to create and easily tie in workers.</p>
     </div>
   </div>
-  
-  
+
+
 </div>
 
 <div class="text-center button buttonBottom">
