@@ -26,7 +26,7 @@ idler_teardown({_, _, Pid}) ->
 -spec reg_asserts({{imap:connspec(), imap:auth()}, imap:mailbox(), pid()}) ->
     [any()].
 reg_asserts({{_ConnSpec, Auth}, Mailbox, _}) ->
-    Account = imap:auth_to_username(Auth),
+    Account = imap:auth_to_account(Auth),
     [?_assertMatch({Pid, _} when is_pid(Pid),
                    gproc:await(switchboard:key_for(Account, {Type, Mailbox})))
      || Type <- [idler, operator]].

@@ -53,8 +53,8 @@
 -spec start_link(imap:connspec(), imap:auth(), imap:mailbox()) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailbox) ->
-    Username = imap:auth_to_username(Auth),
-    Key = switchboard:key_for(Username, {idler_sup, Mailbox}),
+    Account = imap:auth_to_account(Auth),
+    Key = switchboard:key_for(Account, {idler_sup, Mailbox}),
     supervisor:start_link({via, gproc, Key}, ?MODULE, {ConnSpec, Auth, Mailbox}).
 
 
@@ -66,7 +66,7 @@ start_link(ConnSpec, Auth, Mailbox) ->
 init({ConnSpec, Auth, Mailbox}) ->
     RestartStrategy = one_for_one,
     MaxR = MaxT = 5,
-    Account = imap:auth_to_username(Auth),
+    Account = imap:auth_to_account(Auth),
     DispatchFun = switchboard_operator:dispatch_fun(Account, Mailbox),
     ImapSpec = {imap,
                 {imap, start_link,

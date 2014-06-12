@@ -56,7 +56,7 @@
 -spec start_link(imap:connspec(), imap:auth(), [imap:mailbox()]) ->
     supervisor:startlink_ret().
 start_link(ConnSpec, Auth, Mailboxes) ->
-    Key = switchboard:key_for(imap:auth_to_username(Auth), idlers),
+    Key = switchboard:key_for(imap:auth_to_account(Auth), idlers),
     case supervisor:start_link({via, gproc, Key}, ?MODULE, {ConnSpec, Auth}) of
         {ok, Pid} ->
             lists:foreach(

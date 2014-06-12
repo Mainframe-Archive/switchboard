@@ -55,6 +55,7 @@ start(_StartType, _StartArgs) ->
                      {priv_dir, switchboard, "static"}},
                     {<<"/jsclient">>, cowboy_static,
                      {priv_file, switchboard, "switchboardclient.html"}},
+                    {<<"/workers">>, switchboard_workers, []},
                     {<<"/clients">>, switchboard_jmap, []}]}]),
     Port = case application:get_env(cowboy_port) of
                undefined     -> 8080;
