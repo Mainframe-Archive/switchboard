@@ -5,10 +5,10 @@ layout: guide
 ## What is Switchboard?
 
 Switchboard provides high-level tools for managing IMAP clients across
-multiple email accounts and providers, and an API allowing workers to
-process emails as they arrive. It handles the boilerplate of IMAP
-connection management and new email monitoring so that you can focus
-on innovating around email.
+multiple email accounts and providers, and an API allowing external
+workers to process emails as they arrive. It handles the boilerplate
+of IMAP connection management and new email monitoring so that you can
+focus on innovating around email.
 
 ### Features
 
@@ -24,10 +24,10 @@ on innovating around email.
   and services.
 </li>
 <li>
-  In the cloud &mdash; having processes running in the cloud,
+  You deploy it &mdash; by running persistent processes on your own server,
   Switchboard can help you avoid mobile OS backgrounding restrictions
-  and heavy battery consumption, freeing up local memory and leaving
-  you in control of your service.
+  and heavy battery consumption, freeing up the client and leaving
+  you in control.
 </li>
 </ul>
 
@@ -38,31 +38,31 @@ You could use Switchboard to help you:
 <ul class="bulletPoints1">
   <li>
     Send email triggered push notifications to a mobile device. Switchboard
-    makes this easy across many users. Actually,
+    makes this easy, even across many email accounts.
     <a href="http://spatch.io">Spatch</a>'s need for this is why Switchboard exists.
   </li>
 
   <li>
-    Store email image attachments to a Dropbox folder. Switchboard could
-    monitor your or your users' email accounts to upload new email
-    attachments right to their Dropbox.
+    Store email image attachments to a Dropbox folder. Switchboard can
+    upload attachments incoming emails to Dropbox.
   </li>
 
   <li>
-    Unsubscribe from unwanted mailing lists. Say you code the logic
-    to select unwanted emails and follow their subscribe link,
-    Switchboard can run your script across all incoming emails for a
-    set of accounts, clearing them up.
+    Unsubscribe from unwanted mailing lists. Given the code
+    to select unwanted emails and follow their unsubscribe link,
+    Switchboard can remove you from unwanted mailing lists as their
+    emails arrive
   </li>
 </ul>
 
-In fact, Switchboard could do all these things at once across a set
-of email accounts, with each use case implemented as a separate worker.
+Switchboard can do all these things at the same time across a set of
+email accounts, with each use case implemented as a separate worker.
 
 ### First Steps
 
 You are at the beginning of the Switchboard User Guide. This guide can
-take you from installation, to setting up a client or worker.
+take you from installation, to setting up a Switchboard worker or
+client.
 
 To get Switchboard up and running, take a look at the
 [install]({{site.baseurl}}/guide/install) pages.
