@@ -45,7 +45,7 @@ This snippet will clone the project, build Switchboard, package it
 into a release, and start it:
 
 {% highlight bash %}
-git clone https://bitbucket.org/thusfresh/imapswitchboard switchboard
+git clone https://github.com/thusfresh/switchboard switchboard
 cd switchboard
 # Make the release
 make
