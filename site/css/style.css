@@ -23,8 +23,8 @@ p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font
 }
 
 .logo img {
-	width: 280px;
-	height: 54px;
+	width: 300px;
+	height: auto;
 }
 
 .logoMobile {
@@ -219,10 +219,10 @@ p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font
 }
 
 .push {
-	text-align: right;
+	text-align: left;
 	position: relative;
-	margin-top: 254px;
-	float: left;
+	margin-top: 237px;
+	float: right;
     width: 200px;
 }
 
@@ -339,7 +339,7 @@ p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font
 	background: #02334f;
 	position: fixed;
 	width: 100%;
-	height: 110px;
+	height: 120px;
 	box-shadow: 0 3px 29px -15px rgba(0,0,0, 0.5);
 	top: 0;
 	z-index: 11;
@@ -387,7 +387,7 @@ p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font
 }
 .text {
 	position: relative;
-	margin-top: 110px;
+	margin-top: 120px;
 	padding: 30px 50px;
 	max-width: 700px;
 }
