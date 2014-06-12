@@ -33,13 +33,37 @@
 %% @end
 %%------------------------------------------------------------------------------
 
-%% @doc JMAP Command Handler
+%% @doc JMAP command handler.
+%%
+%% This module is a websocket interface that handles JMAP commands.
+%%
+%% 1. Receives a list of JMAP commands encoded in JSON over the websocket.
+%% 2. Decodes the commands, and converts each command list into a tuple.
+%% 3. Handles each command using the `call' function.
+%% 4. Encodes and replies with the list of responses.
+%%
+%% @todo change order of function args -- State should be last to be consistent
+
+%% Steps:
+%% 1. Receive JMAP cmd
+%% 2. jmap_to_erl -- convert a jmap data str
+
+%% with cowboy
 
 -module(switchboard_jmap).
 -behaviour(cowboy_websocket_handler).
 -include("switchboard.hrl").
 
--export([message_id/2]).
+-export([state_by_account/1,
+         encode/1,
+         decode/1,
+         mailbox_name_to_id/2,
+         message_id/2,
+         mailbox_id/2,
+         connect/1,
+         call/2,
+         err/1, err/2]).
+
 -export([init/3,
          websocket_init/3,
          websocket_handle/3,
@@ -52,9 +76,127 @@
 -define(MAILBOX_JOINER, $!).
 
 -record(state, {connspec = none :: imap:connspec() | none,
-                auth = none :: imap:auth() | none,
+                account = none :: imap:account(),
                 owner = true :: boolean(),
-                watched_mailboxes = [] :: [binary()]}).
+                watched_mailboxes = sets:new() :: set()}).
+
+
+
+-type jmap_method() :: binary().
+-type jmap_arg() :: {binary(), binary() | integer()}.
+-type jmap() :: {Method :: jmap_method(),
+                 Args :: [jmap_arg()],
+                 ClientID :: undefined | binary()}.
+
+-export_type([jmap/0]).
+
+
+%%==============================================================================
+%% Public interface.
+%%==============================================================================
+
+%% @doc Returns the minimal jmap state using the Account provided.
+-spec state_by_account(binary()) ->
+    #state{}.
+state_by_account(Account) ->
+    #state{account=Account}.
+
+
+%% @doc Encode JMAP call proplists as JSON.
+-spec encode([jmap()]) ->
+    binary().
+encode(JMAPs) ->
+    jsx:encode([erl_to_jmap(JMAP) || JMAP <- JMAPs]).
+
+
+%% @doc Decode a JMAP call binary into a proplist data structure.
+-spec decode(binary()) ->
+    [jmap()].
+decode(JSON) ->
+    [jmap_to_erl(Cmd) || Cmd <- jsx:decode(JSON)].
+
+
+%% @doc Returns the mailbox ID given its name.
+-spec mailbox_name_to_id(#state{}, binary()) ->
+    binary().
+mailbox_name_to_id(Account, Name) ->
+    {ok, _, Mailboxes} = get_mailboxes(Account),
+    InboxObject = case switchboard_util:take_first(
+                   fun(Mailbox) ->
+                           proplists:get_value(name, Mailbox) =:= Name
+                   end, Mailboxes) of
+                      undefined ->
+                          [];
+                      Else ->
+                          Else
+                  end,
+    proplists:get_value(id, InboxObject).
+
+
+%% @doc Encode a messageId from a mailboxId and UID.
+-spec message_id(binary(), binary() | integer()) ->
+    binary().
+message_id(MailboxId, Uid) when is_integer(Uid) ->
+    message_id(MailboxId, integer_to_binary(Uid));
+message_id(MailboxId, Uid) when is_binary(Uid) ->
+    %% XXX - currently using `?' and `!' as delimiters. Need to make sure that they're IMAP savvy.
+    <<MailboxId/binary, ?MESSAGE_JOINER, Uid/binary>>.
+
+
+%% @doc Encode a mailboxId from the mailbox name and UID validity number.
+-spec mailbox_id(binary(), binary() | integer()) ->
+    binary().
+mailbox_id(MailboxName, UIDValidity) when is_integer(UIDValidity) ->
+    mailbox_id(MailboxName, integer_to_binary(UIDValidity));
+mailbox_id(MailboxName, UIDValidity) when is_binary(UIDValidity)  ->
+    <<MailboxName/binary, ?MAILBOX_JOINER, UIDValidity/binary>>.
+
+
+%% @doc Connect a new account using a proplistsconnspec augmented with
+%% auth data, e.g.
+%%
+%% ```
+%% ConnSpec = [{host, Host}, {port, Port}, {auth, Auth}].
+%% '''
+-spec connect([proplists:property()]) ->
+    {ok, imap:account(), imap:connspec(), boolean()} | {error, _}.
+connect(Args) ->
+    case jmap_connect_parse_args(Args) of
+        {ok, {ConnSpec, Auth}} ->
+            Account = imap:auth_to_account(Auth),
+            case lists:member(Account, switchboard:accounts()) of
+                false ->
+                    {ok, _} = switchboard:add(ConnSpec, Auth),
+                    {ok, Account, ConnSpec, true};
+                true ->
+                    {ok, Account, ConnSpec, false}
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+
+%% @doc Create an error message using only the error `Type'.
+-spec err(binary()) ->
+    jmap().
+err(Type) ->
+    {<<"error">>, [{<<"type">>, Type}], undefined}.
+
+
+%% @doc Create an error message for the JMAP command by including the
+%% command `Method' and `Args' with the error `Type'.
+-spec err(binary() | atom(), jmap()) ->
+    jmap().
+err(Type, {Method, Args, ClientID}) ->
+    {<<"error">>,
+     [{<<"type">>, Type},
+      {<<"method">>, Method},
+      {<<"arguments">>, Args}],
+     ClientID};
+err(Type, {Args, ClientID}) ->
+    {<<"error">>,
+     [{<<"type">>, Type} | Args],
+     ClientID}.
 
 
 %%==============================================================================
@@ -74,7 +216,7 @@ websocket_init(_TransportName, Req, _Opts) ->
 %% @private
 websocket_handle({text, Data}, Req, State) when is_binary(Data) ->
     Calls = decode(Data),
-    {State2, Resps} = execute(State, Calls),
+    {State2, Resps} = call_all(State, Calls),
     {reply, {text, encode(Resps)}, Req, State2};
 websocket_handle(Data, Req, State) ->
     lager:info("Unexpected data: ~p", [Data]),
@@ -82,12 +224,12 @@ websocket_handle(Data, Req, State) ->
 
 
 %% @private
-websocket_info({new, {_, Mailbox}, Item}, Req, State) ->
-    MailboxId = mailbox_name_to_id(State, Mailbox),
+websocket_info({new, {_, Mailbox}, Item}, Req, #state{account=Account} = State) ->
+    MailboxId = mailbox_name_to_id(Account, Mailbox),
     Resp = [{mailboxId, MailboxId},
             {messageId, message_id(MailboxId, proplists:get_value(uid, Item))}],
     Reply = {<<"newMessage">>, Resp, undefined},
-    lager:info("Received new msg: ~p", [Item]),
+    lager:debug("WebsoReceived new msg: ~p", [Item]),
     {reply, {text, encode([Reply])}, Req, State};
 websocket_info(Info, Req, State) ->
     lager:info("Unexpected info: ~p", [Info]),
@@ -95,9 +237,9 @@ websocket_info(Info, Req, State) ->
 
 
 %% @private
-websocket_terminate(_Reason, _Req, #state{auth=Auth, owner=true}) when Auth =/= none ->
-    Username = imap:auth_to_username(Auth),
-    switchboard:stop(Username);
+websocket_terminate(_Reason, _Req, #state{account=Account, owner=true})
+  when Account =/= none ->
+    switchboard:stop(Account);
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
@@ -106,49 +248,21 @@ websocket_terminate(_Reason, _Req, _State) ->
 %% Internal Functions
 %%==============================================================================
 
-%% Swap out the JMAP active connections with a pool -- when running a JMAP
-%% connection clients can checkout/lock an IMAP process.
-
-%% Steps:
-%% 1. Receive JMAP cmd
-%% 2. jmap_command_to_erl -- convert a jmap data str
-
-
--type jmap_method() :: binary().
--type jmap_arg() :: {binary(), binary() | integer()}.
--type jmap() :: {Method   :: jmap_method(),
-                 Args     :: [jmap_arg()],
-                 ClientID :: undefined | binary()}.
+%% @private
+%% @doc Call all JMAP commands, returning the responses and updated State.
+-spec call_all([jmap()], #state{}) ->
+    {[jmap()], #state{}}.
+call_all(Cmds, State) ->
+    call_all(Cmds, State, []).
 
 %% @private
-%% @equiv execute(State, Calls, [])
--spec execute(binary(), [jmap()]) ->
-    {#state{}, [jmap()]}.
-execute(State, Calls) ->
-    execute(State, Calls, []).
-
-%% @private
-execute(State, [], Resps) ->
+-spec call_all([jmap()], #state{}, [jmap()]) ->
+    {[jmap()], #state{}}.
+call_all([], State, Resps) ->
     {State, lists:reverse(Resps)};
-execute(State, [Call | Rest], Resps) ->
-    {State2, Resp} = jmap(State, Call),
-    execute(State2, Rest, [Resp | Resps]).
-
-
-%% @private
-%% @doc Decode a JMAP call binary into a proplist data structure.
--spec decode(binary()) ->
-    [jmap()].
-decode(JSON) ->
-    [jmap_to_erl(JMAPCall) || JMAPCall <- jsx:decode(JSON)].
-
-
-%% @private
-%% @doc Encode JMAP call proplists as JSON.
--spec encode([jmap()]) ->
-    binary().
-encode(JMAPs) ->
-    jsx:encode([erl_to_jmap(JMAP) || JMAP <- JMAPs]).
+call_all([Cmd | Rest], State, Resps) ->
+    {Resp, State2} = call(Cmd, State),
+    call_all(Rest, State2, [Resp | Resps]).
 
 
 %% @private
@@ -171,77 +285,105 @@ erl_to_jmap({Method, Args, ClientID}) ->
     [Method, Args, ClientID].
 
 
+
 %% @private
 %% @doc Execute a JMAP command. In the case of errors which the client
 %% should be notified of, return an error response.
 %% @see err/2.
--spec jmap(#state{}, jmap()) ->
+-spec call(#state{}, jmap()) ->
     {#state{}, jmap()}.
-%% connect
-jmap(#state{auth=none} = State, {<<"connect">>, Args, ClientID} = JMAPCall) ->
-    case jmap_connect_parse_args(Args) of
-        {ok, {ConnSpec, Auth}} ->
-            Username = imap:auth_to_username(Auth),
-            case lists:member(Username, switchboard:accounts()) of
-                false ->
-                    {ok, _} = switchboard:add(ConnSpec, Auth),
-                    {State#state{connspec=ConnSpec, auth=Auth, owner=true},
-                     {<<"connected">>, [{}], ClientID}};
-                true ->
-                    {State#state{connspec=ConnSpec, auth=Auth, owner=false},
-                     {<<"connected">>, [{}], ClientID}}
-            end;
-        {error, _} ->
-            {State, err(<<"badArgs">>, JMAPCall)}
+call({<<"connect">>, Args, ClientID} = Cmd, #state{account=none} = State) ->
+    case connect(Args) of
+        {ok, Account, ConnSpec, Owner} ->
+            {{<<"connected">>, [{}], ClientID},
+             State#state{connspec=ConnSpec, account=Account, owner=Owner}};
+        {error, Reason} ->
+            {err(Reason, Cmd), State}
     end;
-jmap(#state{auth=Auth} = State, {<<"connect">>, _, _} = JMAPCall) when Auth =/= none ->
-    {State, err(<<"alreadyConnected">>, JMAPCall)};
-jmap(#state{auth=Auth} = State, {<<"watchMailboxes">>, _, _} = JMAPCall)
-  when Auth =/= none ->
-    watch_mailboxes(State, JMAPCall);
-jmap(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall)
-  when Auth =/= none ->
-    get_mailboxes(State, JMAPCall);
-jmap(#state{auth=Auth} = State, {<<"getMessageList">>, _, _} = JMAPCall)
-  when Auth =/= none ->
-    get_message_list(State, JMAPCall);
-jmap(#state{auth=Auth} = State, {<<"getMessages">>, _, _} = JMAPCall)
-  when Auth =/= none ->
-    get_messages(State, JMAPCall);
-jmap(State, JMAPCall) ->
-    {State, err(<<"unknownMethod">>, JMAPCall)}.
+call({<<"connect">>, _, _} = Cmd, #state{account=Account} = State)
+  when Account =/= none ->
+    {err(<<"alreadyConnected">>, Cmd), State};
+
+call({<<"watchMailboxes">>, Args, ClientID} = Cmd, #state{account=Account} = State)
+  when Account =/= none ->
+    case watch_mailboxes(Account, Args) of
+        {ok, MailboxesSet} ->
+            {{<<"watchingMailboxes">>,
+              [{<<"list">>, sets:to_list(MailboxesSet)}],
+              ClientID},
+             State#state{watched_mailboxes=MailboxesSet}};
+        {error, Reason} ->
+            {err(Reason, Cmd), State}
+    end;
+
+call({<<"getMailboxes">>, Args, ClientID} = Cmd, #state{account=Account} = State)
+  when Account =/= none ->
+    case get_mailboxes(Account, Args) of
+        {ok, CurrentState} ->
+            {{<<"mailboxes">>, [{<<"state">>, CurrentState}], ClientID}, State};
+        {ok, CurrentState, MailboxIds} ->
+            {{<<"mailboxes">>,
+              [{<<"state">>, CurrentState}, {<<"list">>, MailboxIds}], ClientID},
+             State};
+        {error, Reason} ->
+            {err(Reason, Cmd), State}
+    end;
+
+call({<<"getMessageList">>, Args, ClientID} = Cmd, #state{account=Account} = State)
+  when Account =/= none ->
+    case get_message_list(Account, Args) of
+        {ok, MessageIds} ->
+            {{<<"messageList">>, [{<<"messageIds">>, MessageIds}], ClientID}, State};
+        {error, nomailbox} ->
+            {err(<<"mailboxDoesNotExist">>, Cmd), State};
+        {error, nomailboxid} ->
+            {err(<<"missingMailboxId">>, Cmd), State}
+    end;
+
+call({<<"getMessageList">>, Args, ClientID} = Cmd, #state{account=Account} = State)
+  when Account =/= none ->
+    case get_messages(Account, Args) of
+        {ok, Messages} ->
+            {{<<"messages">>, [{state, <<"TODO">>}, {list, Messages}], ClientID},
+             State};
+        {error, Reason} ->
+            err(Reason, Cmd)
+    end;
+
+call(Cmd, State) ->
+    {err(unknownMethod, Cmd), State}.
 
 
 %% @private
-%% @doc Start watching for new messages, send a .
-watch_mailboxes(#state{auth=Auth} = State,
-                {<<"watchMailboxes">>, Args, ClientID} = JMAPCall) ->
+%% @doc Start watching for new messages, returns the list of mailboxes
+%% which are being watched.
+%% @todo this function should use mailboxIds
+-spec watch_mailboxes(imap:account(), [proplists:property()]) ->
+    {ok, set()} | {error, _}.
+watch_mailboxes(Account, Args) ->
     case proplists:get_value(<<"list">>, Args) of
         undefined ->
-            {State, err(<<"noList">>, JMAPCall)};
+            {error, noList};
         [] ->
-            {State, err(<<"emptyList">>, JMAPCall)};
+            {error, emptyList};
         Mailboxes when is_list(Mailboxes) ->
             %% @todo - race condition here, depending on if name registration
             %% occurs immediately
-            Username = imap:auth_to_username(Auth),
-            MonitoredSet = sets:from_list(switchboard:mailbox_monitors(Username)),
             MailboxesSet = sets:from_list(Mailboxes),
-            RespArgs =
-                case sets:fold(
-                       fun(Mailbox, Acc) ->
-                               switchboard:add_mailbox_monitor(Username, Mailbox),
-                               Acc
-                       end, [], sets:subtract(MailboxesSet, MonitoredSet)) of
-                    [] ->
-                        [{}];
-                    Failed ->
-                        [{failed, Failed}]
-                end,
+            CurrentlyMonitored = sets:from_list(switchboard:mailbox_monitors(Account)),
+            MonitorSet = sets:subtract(MailboxesSet, CurrentlyMonitored),
             %% @todo better way to do this without the catch?
             catch switchboard:subscribe(new),
-            {State#state{watched_mailboxes=Mailboxes},
-             {<<"watchingMailboxes">>, RespArgs, ClientID}}
+            case sets:fold(
+                   fun(Mailbox, Acc) ->
+                           switchboard:add_mailbox_monitor(Account, Mailbox),
+                           Acc
+                   end, [], MonitorSet) of
+                [] ->
+                    {ok, MailboxesSet};
+                Failed ->
+                    {error, {failed, Failed}}
+            end
     end.
 
 
@@ -249,51 +391,51 @@ watch_mailboxes(#state{auth=Auth} = State,
 %% @doc Implements JMAP's getMailboxes.
 %%
 %% <a href="http://jmap.io/#getmailboxes">`getMailboxes'</a>
-get_mailboxes(#state{auth=Auth} = State, {<<"getMailboxes">>, _, _} = JMAPCall) ->
-    switchboard:with_imap(imap:auth_to_username(Auth),
-                          fun(IMAP) -> get_mailboxes(IMAP, State, JMAPCall) end).
+get_mailboxes(Account) ->
+    get_mailboxes(Account, []).
 
-get_mailboxes(IMAP, State, JMAPCall) ->
+%% @private
+get_mailboxes(Account, Args) when is_binary(Account), is_list(Args) ->
+    switchboard:with_imap(Account, fun(IMAP) -> get_mailboxes(IMAP, Args) end);
+get_mailboxes(IMAP, Args) when is_pid(IMAP) ->
     %% XXX - LIST "" "*" is aggressive, but so is getMailboxes
     {ok, ListResps} = imap:clean_list(imap:call(IMAP, {list, <<"">>, <<"*">>})),
-    get_mailboxes(IMAP, State, JMAPCall, ListResps).
+    get_mailboxes(IMAP, Args, ListResps).
 
 %% @private
 %% @doc Before making Examine calls, check the state.
-get_mailboxes(IMAP, State, JMAPCall, ListResps) ->
+get_mailboxes(IMAP, Args, ListResps) ->
     UIDValidities = [case proplists:get_value(uidvalidity, R) of
                          undefined ->
+                             lager:warning("No UIDVALIDITY: ~p", [R]),
                              <<"u">>;
                          UIDValidity ->
                              integer_to_binary(UIDValidity)
                      end || R <- ListResps],
     <<CurrentState:160/integer>> = crypto:hash(sha, UIDValidities),
-    get_mailboxes(IMAP, State, JMAPCall, ListResps, CurrentState).
+    get_mailboxes(IMAP, Args, ListResps, CurrentState).
 
 %% @private
-get_mailboxes(IMAP, State, {_, Args, ClientID} = JMAPCall, ListResps, CurrentState) ->
+get_mailboxes(IMAP, Args, ListResps, CurrentState) ->
     case CurrentState =:= proplists:get_value(<<"state">>, Args) of
         true ->
-            {State, {<<"mailboxes">>, [{<<"state">>, CurrentState}], ClientID}};
+            {ok, CurrentState};
         false ->
-            get_mailboxes(IMAP, State, JMAPCall, CurrentState, ListResps, [])
+            get_mailboxes(IMAP, Args, CurrentState, ListResps, [])
     end.
 
 %% @private
-get_mailboxes(_IMAP, State, {_, _, ClientID}, ReplyState, [], Acc) ->
-    {State, {<<"mailboxes">>,
-             [{<<"state">>, ReplyState}, {<<"list">>, Acc}],
-             ClientID}};
-get_mailboxes(IMAP, State, JMAPCall, ReplyState, [ListResp | Rest], Acc) ->
+get_mailboxes(_IMAP, _Args, CurrentState, [], Acc) ->
+    {ok, CurrentState, Acc};
+get_mailboxes(IMAP, Args, CurrentState, [ListResp | Rest], Acc) ->
     NameAttrs = proplists:get_value(name_attrs, ListResp),
     case lists:member(<<"\\Noselect">>, NameAttrs) of
         false ->
             Name = proplists:get_value(name, ListResp),
             {ok, JMAPMailbox} = get_mailbox(IMAP, Name),
-            get_mailboxes(IMAP, State, JMAPCall, ReplyState, Rest,
-                               [JMAPMailbox | Acc]);
+            get_mailboxes(IMAP, Args, CurrentState, Rest, [JMAPMailbox | Acc]);
         true ->
-            get_mailboxes(IMAP, State, JMAPCall, ReplyState, Rest, Acc)
+            get_mailboxes(IMAP, Args, CurrentState, Rest, Acc)
     end.
 
 
@@ -317,55 +459,46 @@ get_mailbox(IMAP, Mailbox) ->
 %% @doc Implements JMAP's getMessageList.
 %%
 %% <a href="http://jmap.io/#getmessagelist">`getMailboxes'</a>
--spec get_message_list(#state{}, jmap()) ->
-    {#state{}, jmap()}.
-get_message_list(#state{auth=Auth} = State, JMAPCall) ->
-    switchboard:with_imap(imap:auth_to_username(Auth),
-                          fun(IMAP) -> get_message_list(IMAP, State, JMAPCall) end).
+-spec get_message_list(imap:account(), [proplists:property()]) ->
+    {ok, [binary()]} | {error, _}.
+get_message_list(Account, Args) when is_binary(Account) ->
+    switchboard:with_imap(Account, fun(IMAP) -> get_message_list(IMAP, Args) end);
+get_message_list(IMAP, Args) when is_pid(IMAP) ->
+    get_message_list(IMAP, Args, proplists:get_value(<<"mailboxId">>, Args)).
 
-get_message_list(IMAP, State, {_, Args, _} = JMAPCall) ->
-    get_message_list(IMAP, State, JMAPCall,
-                     proplists:get_value(<<"mailboxId">>, Args)).
-
-get_message_list(_IMAP, State, JMAPCall, undefined) ->
-    {State, err(<<"missingMailboxId">>, JMAPCall)};
-get_message_list(IMAP, State, {_, _, ClientID} = JMAPCall, MailboxId) ->
+get_message_list(_IMAP, _Args, undefined) ->
+    {error, nomailboxid};
+get_message_list(IMAP, _args, MailboxId) ->
     case select_by_id(IMAP, MailboxId) of
         ok ->
             {ok, {_, Resps}} = imap:call(IMAP, {uid, {search, [<<"ALL">>]}}),
             [{search, Uids}] = imap:clean(Resps),
-            {State, {<<"messageList">>,
-                     [{<<"messageIds">>, [message_id(MailboxId, U) || U <- Uids]}],
-                     ClientID}};
+            {ok, [message_id(MailboxId, U) || U <- Uids]};
         {error, nomailbox} ->
-            {State, err(<<"mailboxDoesNotExist">>, JMAPCall)}
+            {error, nomailbox}
     end.
 
 
 %% @private
 %% @doc Returns a list of messages from the server.
-get_messages(#state{auth=Auth} = State, JMAPCall) ->
-    switchboard:with_imap(imap:auth_to_username(Auth),
-                          fun(IMAP) -> get_messages(IMAP, State, JMAPCall) end).
-
-
-%% @private
-get_messages(IMAP, State, {_, Args, _} = JMAPCall) ->
-    get_messages(IMAP, State, JMAPCall,
+get_messages(Account, Args) when is_binary(Account)->
+    switchboard:with_imap(Account, fun(IMAP) -> get_messages(IMAP, Args) end);
+get_messages(IMAP, Args) when is_pid(IMAP) ->
+    get_messages(IMAP,
                  proplists:get_value(<<"ids">>, Args),
                  proplists:get_value(<<"properties">>, Args)).
 
 %% @private
-get_messages(_, State, JMAPCall, undefined, _) ->
-    {State, err(<<"badArgs">>, JMAPCall)};
-get_messages(IMAP, State, {_, _, ClientID}, ReqIds, Properties) when is_list(ReqIds) ->
+get_messages(_IMAP, undefined, _) ->
+    {error, badArgs};
+get_messages(IMAP, ReqIds, Properties) when is_list(ReqIds) ->
     DecodedIds = [decode_message_id(Id) || Id <- ReqIds],
     %% @todo support multiple mailboxes
     Messages =
         lists:foldr(
           fun(MailboxId, Acc) ->
                   Ids = proplists:get_all_values(MailboxId, DecodedIds),
-                  ok = select_by_id(State, MailboxId),
+                  ok = select_by_id(IMAP, MailboxId),
                   {ok, Attrs} = fetch_attributes(Properties),
                   {ok, {_, Resps}} =
                       imap:call(IMAP, {uid, {fetch, Ids, Attrs}}),
@@ -375,9 +508,7 @@ get_messages(IMAP, State, {_, _, ClientID}, ReqIds, Properties) when is_list(Req
                                   Props
                           end || M <- imap:clean(Resps)]
           end, [], proplists:get_keys(DecodedIds)),
-    {State, {<<"messages">>, [{state, <<"TODO">>},
-                              {list, Messages}],
-             ClientID}}.
+    {ok, Messages}.
 
 
 %% <b>`getMessages' Properties:</b>
@@ -540,13 +671,13 @@ addresses_to_jmap(Addresses) ->
 
 
 
+%% @private
 %% @doc Select a mailbox using the provided jmap mailbox id.
 %% Returns an error if the UIDValidity doesn't match.
 -spec select_by_id(pid(), binary()) ->
     ok | {error, _}.
-select_by_id(#state{auth=Auth}, MailboxId) ->
-    switchboard:with_imap(imap:auth_to_username(Auth),
-                          fun(IMAP) -> select_by_id(IMAP, MailboxId) end);
+select_by_id(#state{account=Account}, MailboxId) ->
+    switchboard:with_imap(Account, fun(IMAP) -> select_by_id(IMAP, MailboxId) end);
 
 select_by_id(IMAP, MailboxId) when is_pid(IMAP) ->
     case catch decode_mailbox_id(MailboxId) of
@@ -568,49 +699,12 @@ select_by_id(IMAP, MailboxId) when is_pid(IMAP) ->
     end.
 
 
--spec mailbox_name_to_id(#state{}, binary()) ->
-    binary().
-mailbox_name_to_id(State, Name) ->
-    {State, {<<"mailboxes">>, Args, <<"1">>}} =
-        get_mailboxes(State, {<<"getMailboxes">>, [], <<"1">>}),
-    InboxObject = case switchboard_util:take_first(
-                   fun(Mailbox) ->
-                           proplists:get_value(name, Mailbox) =:= Name
-                   end, proplists:get_value(<<"list">>, Args, [])) of
-                      undefined ->
-                          [];
-                      Else ->
-                          Else
-                  end,
-    proplists:get_value(id, InboxObject).
-
-
-%% @doc Encode a messageId from a mailboxId and UID.
--spec message_id(binary(), binary() | integer()) ->
-    binary().
-message_id(MailboxId, Uid) when is_integer(Uid) ->
-    message_id(MailboxId, integer_to_binary(Uid));
-message_id(MailboxId, Uid) when is_binary(Uid) ->
-    %% XXX - currently using `?' and `!' as delimiters. Need to make sure that they're IMAP savvy.
-    <<MailboxId/binary, ?MESSAGE_JOINER, Uid/binary>>.
-
-
 %% @private
 -spec decode_message_id(binary()) ->
     {binary(), non_neg_integer()}.
 decode_message_id(MessageId) ->
     [MailboxId, Uid] = binary:split(MessageId, <<?MESSAGE_JOINER>>),
     {MailboxId, binary_to_integer(Uid)}.
-
-
-%% @private
-%% @doc Encode a mailboxId from the mailbox name and UID validity number.
--spec mailbox_id(binary(), binary() | integer()) ->
-    binary().
-mailbox_id(MailboxName, UIDValidity) when is_integer(UIDValidity) ->
-    mailbox_id(MailboxName, integer_to_binary(UIDValidity));
-mailbox_id(MailboxName, UIDValidity) when is_binary(UIDValidity)  ->
-    <<MailboxName/binary, ?MAILBOX_JOINER, UIDValidity/binary>>.
 
 
 %% private
@@ -634,17 +728,6 @@ jmap_connect_parse_args(Args) ->
         {_, Undefineds} when Undefineds =/= [] ->
             {error, {missing, Undefineds}}
     end.
-
-%% @private
-%% @doc Create an error message.
--spec err(binary(), jmap()) ->
-    jmap().
-err(Type, {Method, Args, ClientID}) ->
-    {<<"error">>,
-     [{<<"type">>, Type},
-      {<<"method">>, Method},
-      {<<"arguments">>, Args}],
-     ClientID}.
 
 
 %% @doc Convert an auth proplist to the imap.erl data format.
@@ -703,9 +786,8 @@ decode_encode_assertions() ->
 %% @private
 %% @doc Assertions for the jmap (well, my interpretation at least) connect command
 jmap_connect_assertions() ->
-    {ssl, Host, Port} = ?DISPATCH_CONN_SPEC,
-    Auth = ?DISPATCH_AUTH,
-    Account = imap:auth_to_username(Auth),
+    {{ssl, Host, Port} = ConnSpec, Auth} = {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH},
+    Account = imap:auth_to_account(Auth),
     case lists:member(Account, switchboard:accounts()) of
         true ->
             OldIMAP = switchboard:where(Account, active),
@@ -714,14 +796,14 @@ jmap_connect_assertions() ->
         false ->
             ok
     end,
-    Connect = jmap(#state{}, {<<"connect">>,
-                              [{<<"host">>, Host},
-                               {<<"port">>, Port},
-                               {<<"auth">>, imap:auth_to_props(Auth)}],
-                              <<"1">>}),
+    Connect = call({<<"connect">>,
+                    [{<<"host">>, Host},
+                     {<<"port">>, Port},
+                     {<<"auth">>, imap:auth_to_props(Auth)}],
+                    <<"1">>}, #state{}),
     {IMAP, _} = gproc:await(switchboard:key_for(Account, active), 5000),
-    [?_assertMatch({#state{connspec=?DISPATCH_CONN_SPEC, auth=Auth},
-                    {<<"connected">>, _, <<"1">>}}, Connect),
+    [?_assertMatch({{<<"connected">>, _, <<"1">>},
+                    #state{connspec=ConnSpec, account=Account}}, Connect),
      ?_assertEqual(ok, switchboard:stop(Account)),
      ?_assertEqual(ok, switchboard_util:await_death(IMAP))].
 
@@ -737,15 +819,14 @@ mailbox_id_assertions() ->
 imap_setup() ->
     {ConnSpec, Auth} = {?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH},
     {ok, _} = switchboard:add(?DISPATCH_CONN_SPEC, Auth),
-    #state{connspec=ConnSpec, auth=Auth}.
+    #state{connspec=ConnSpec, account=imap:auth_to_account(Auth)}.
 
 
 %% @private
 %% @doc Exit the test imap connection.
-imap_teardown(#state{auth=Auth}) ->
-    Username = imap:auth_to_username(Auth),
-    IMAP = switchboard:where(Username, active),
-    switchboard:stop(Username),
+imap_teardown(#state{account=Account}) ->
+    IMAP = switchboard:where(Account, active),
+    switchboard:stop(Account),
     switchboard_util:await_death(IMAP).
 
 
@@ -753,31 +834,19 @@ imap_teardown(#state{auth=Auth}) ->
 %% @doc Assertions for the JMAP getMailboxes command. This test
 %% calls getMailboxes twice, using the state returned by the first
 %% call in the second.
-get_mailboxes_assertions(State) ->
+get_mailboxes_assertions(#state{account=Account}) ->
     %% This test depends on the state not actually changing.
-    {State, {<<"mailboxes">>, Args, <<"1">>}} =
-        get_mailboxes(State, {<<"getMailboxes">>, [], <<"1">>}),
-    {State, {<<"mailboxes">>, Args2, <<"2">>}} =
-        get_mailboxes(State, {<<"getMailboxes">>,
-                              [{<<"state">>,
-                                proplists:get_value(<<"state">>, Args)}],
-                              <<"2">>}),
-    [{"Assert that `state' didn't change between calls. Which could happen.",
-     ?_assertEqual(proplists:get_value(<<"state">>, Args),
-                   proplists:get_value(<<"state">>, Args2))},
-     {"Assert that the `state' was returned in Args.",
-      ?_assertNotEqual(undefined, proplists:get_value(<<"state">>, Args))},
-     {"Because `state' wasn't in the first call's args, `list' should be returned.",
-      ?_assertMatch(List when is_list(List), proplists:get_value(<<"list">>, Args))},
-     {"Because `state' didn't change, `list' should not have been returned.",
-      ?_assertEqual(undefined, proplists:get_value(<<"list">>, Args2))}].
+    {ok, MailboxesState, Mailboxes} = get_mailboxes(Account, []),
+    {ok, MailboxesState} = get_mailboxes(Account, [{<<"state">>, MailboxesState}]),
+    [{"Because `state' wasn't in the 1st call's args, mailboxes should be present.",
+      ?_assert(is_list(Mailboxes))}].
 
 
 %% @private
 %% @doc Assertions for the select_by_id command.
 %% @todo Write tests for failure conditions.
-select_by_id_assertions(State) ->
-    InboxID = mailbox_name_to_id(State, <<"INBOX">>),
+select_by_id_assertions(#state{account=Account} = State) ->
+    InboxID = mailbox_name_to_id(Account, <<"INBOX">>),
     [?_assertNotEqual(InboxID, undefined),
      ?_assertEqual(ok, select_by_id(State, InboxID))].
 
@@ -785,51 +854,34 @@ select_by_id_assertions(State) ->
 %% @private
 %% @doc Assertions for the `watch_mailboxes' command.
 %% @todo Write tests for `failed' mailboxes.
-watch_mailboxes_assertions(#state{auth=Auth} = State) ->
+watch_mailboxes_assertions(#state{account=Account}) ->
     %% XXX - these config vals should be passed through the opts...
-    Account = imap:auth_to_username(Auth),
-    WatchMailboxes = [<<"INBOX">>],
-    [WatchMailbox] = WatchMailboxes,
-    State2 = State#state{watched_mailboxes = WatchMailboxes},
-    [?_assertMatch({State2, {<<"watchingMailboxes">>, [{}], <<"1">>}},
-                   jmap(State, {<<"watchMailboxes">>,
-                                [{<<"list">>, WatchMailboxes}], <<"1">>})),
+    WatchMailbox = <<"INBOX">>,
+    {ok, MailboxesSet} = watch_mailboxes(Account, [{<<"list">>, [WatchMailbox]}]),
+    [?_assert(sets:is_set(MailboxesSet)),
      ?_assertMatch(P when is_pid(P), switchboard:await(Account,
                                                        {idler, WatchMailbox})),
-     ?_assertEqual(WatchMailboxes, switchboard:mailbox_monitors(Account))].
+     ?_assertEqual([WatchMailbox], switchboard:mailbox_monitors(Account))].
 
 %% @private
-get_message_list_assertions(State) ->
-    InboxID = mailbox_name_to_id(State, <<"INBOX">>),
-    {State, {<<"messageList">>, Args, <<"1">>}} =
-     get_message_list(State,
-                      {<<"getMessageList">>,
-                       [{<<"mailboxId">>, InboxID}],
-                       <<"1">>}),
-    [?_assertMatch(L when is_list(L), proplists:get_value(<<"messageIds">>, Args))].
+get_message_list_assertions(#state{account=Account}) ->
+    InboxID = mailbox_name_to_id(Account, <<"INBOX">>),
+    {ok, MessageIds} = get_message_list(Account, [{<<"mailboxId">>, InboxID}]),
+    [?_assert(is_list(MessageIds))].
 
 
 %% @private
-get_messages_assertions(State) ->
-    InboxID = mailbox_name_to_id(State, <<"INBOX">>),
-    {State, {<<"messageList">>, ListArgs, <<"1">>}} =
-     get_message_list(State,
-                      {<<"getMessageList">>,
-                       [{<<"mailboxId">>, InboxID}],
-                       <<"1">>}),
-    MessageIds = lists:sublist(proplists:get_value(<<"messageIds">>, ListArgs), 2),
-    %% [MessageId | _] = MessageIds,
-    {State, {<<"messages">>, MsgArgs, <<"2">>}} =
-        get_messages(State, {<<"getMessages">>,
-                             [{<<"ids">>, MessageIds},
-                              {<<"properties">>, [<<"mailboxId">>,
-                                                  <<"messageId">>,
-                                                  <<"subject">>,
-                                                  <<"date">>,
-                                                  <<"size">>,
-                                                  <<"textBody">>]}],
-                             <<"2">>}),
-    Messages = proplists:get_value(list, MsgArgs),
+get_messages_assertions(#state{account=Account}) ->
+    InboxID = mailbox_name_to_id(Account, <<"INBOX">>),
+    {ok, MessageIds} = get_message_list(Account, [{<<"mailboxId">>, InboxID}]),
+    {ok, Messages} =
+        get_messages(Account, [{<<"ids">>, MessageIds},
+                               {<<"properties">>, [<<"mailboxId">>,
+                                                   <<"messageId">>,
+                                                   <<"subject">>,
+                                                   <<"date">>,
+                                                   <<"size">>,
+                                                   <<"textBody">>]}]),
     [{"get_message_list should return message ids in its Resp.",
       ?_assertNotEqual(undefined, MessageIds)},
      {"get_message_list shouldn't return an empty list.",
@@ -841,7 +893,7 @@ get_messages_assertions(State) ->
         fun(Message, Acc) ->
                 [?_assertNotEqual(undefined, proplists:get_value(Key, Message))
                  || Key <- [messageId, mailboxId, subject, date, size]] ++ Acc
-        end, [], Messages)},
-     ?_assertNotEqual(undefined, MsgArgs)].
+        end, [], Messages)}].
+     %% ?_assertNotEqual(undefined, MsgArgs)].
 
 -endif.

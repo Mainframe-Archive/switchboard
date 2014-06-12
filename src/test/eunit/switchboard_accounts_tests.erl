@@ -28,7 +28,7 @@ accounts_teardown({_, _, Pid}) ->
 -spec accounts_reg_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
     [any()].
 accounts_reg_asserts({{_ConnSpec, Auth}, Mailboxes, _}) ->
-    Account = imap:auth_to_username(Auth),
+    Account = imap:auth_to_account(Auth),
     [[?_assertMatch({Pid, _} when is_pid(Pid),
                     gproc:await(switchboard:key_for(Account, {Type, Mailbox})))
       || Type <- [idler, operator], Mailbox <- Mailboxes],
@@ -39,7 +39,7 @@ accounts_reg_asserts({{_ConnSpec, Auth}, Mailboxes, _}) ->
 -spec active_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
     [any()].
 active_asserts({{_, Auth}, [Mailbox | _], _}) ->
-    Account = imap:auth_to_username(Auth),
+    Account = imap:auth_to_account(Auth),
     {Active, _} = gproc:await(switchboard:key_for(Account, active)),
     [?_assertMatch({ok, _}, imap:call(Active, {select, Mailbox})),
      ?_assertMatch({ok, _}, imap:call(Active, {fetch, 1, [<<"UID">>]}))].
@@ -48,7 +48,7 @@ active_asserts({{_, Auth}, [Mailbox | _], _}) ->
 -spec operator_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
     [any()].
 operator_asserts({{_Connspec, Auth}, Mailboxes, _}) ->
-    Account = imap:auth_to_username(Auth),
+    Account = imap:auth_to_account(Auth),
     lists:map(fun(Mailbox) ->
                       Operator = switchboard:where(Account, {operator, Mailbox}),
                       ?_assert(is_integer(switchboard_operator:get_last_uid(Operator)))

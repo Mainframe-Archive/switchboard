@@ -63,7 +63,7 @@ start_link(ConnSpec, Auth, Mailboxes) ->
 
 %% @private
 init({ConnSpec, Auth, Mailboxes}) ->
-    Account = imap:auth_to_username(Auth),
+    Account = imap:auth_to_account(Auth),
     true = gproc:reg(switchboard:key_for(Account, account)),
     RestartStrategy = one_for_all,
     MaxR = MaxT = 5,
