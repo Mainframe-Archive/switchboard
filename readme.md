@@ -1,5 +1,7 @@
 # Switchboard
 
+[![Build Status](https://travis-ci.org/thusfresh/switchboard.svg?branch=master)](https://travis-ci.org/thusfresh/switchboard)
+
 Switchboard provides high-level tools for managing IMAP clients across
 multiple email accounts and providers, and an API allowing workers to
 process emails as they arrive.
