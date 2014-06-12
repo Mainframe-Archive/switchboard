@@ -18,8 +18,8 @@ never be publicly exposed.
 
 To have control over what interfaces are exposed, it is recommended
 that Switchboard's client port, `8080` by default, is closed to
-external connections. Individual interfaces can be exposed be exposed
-using an HTTP server's
+external connections. Individual interfaces can be exposed using an
+HTTP server's
 [rewrite](http://nginx.org/en/docs/http/ngx_http_rewrite_module.html)
 [rules](http://httpd.apache.org/docs/current/mod/mod_rewrite.html).
 
