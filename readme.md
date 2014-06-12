@@ -7,11 +7,11 @@ process emails as they arrive.
 ## Documentation
 
 See the
-[guide](https://bitbucket.org/thusfresh/imapswitchboard/src/master/guide/toc.md)
+[guide](http://thusfresh.github.io/switchboard/)
 for
-[Installation](https://bitbucket.org/thusfresh/imapswitchboard/src/master/guide/installation.md)
+[Installation](http://thusfresh.github.io/switchboard/guide/install/)
 and
-[Getting Started](https://bitbucket.org/thusfresh/imapswitchboard/src/master/guide/getting-started.md)
+[Getting Started](http://thusfresh.github.io/switchboard/guide/whatis/)
 instructions, as well as other topics.
 
 You're more than welcome to [contribute](CONTRIBUTING.md).
