@@ -3,7 +3,7 @@
 Thanks for your interest in contributing to Switchboard. This document
 provides a set of guidelines adapted from
 [cowboy](https://github.com/extend/cowboy). Follow the guide to the
-best of your ability, but error on the side of getting your
+best of your ability, but err on the side of getting your
 contributions out there. If you have questions, you can ask them on
 the mailing lists.
 
