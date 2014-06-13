@@ -97,7 +97,7 @@ websocket_init(_TransportName, Req, _Opts) ->
 %% @private
 websocket_handle({text, JSON}, Req, State) ->
     {Resps, State2} = call_all(switchboard_jmap:decode(JSON), State),
-    lager:info("Resps: ~p", [Resps]),
+    lager:debug("Resps: ~p", [Resps]),
     {reply, {text, switchboard_jmap:encode(Resps)}, Req, State2};
 websocket_handle(Data, Req, State) ->
     lager:warning("Unexpected data: ~p", [Data]),
@@ -106,10 +106,11 @@ websocket_handle(Data, Req, State) ->
 
 %% @private
 websocket_info({new, {Account, Mailbox}, Item}, Req, State) ->
-    MailboxId = switchboard_jmap:mailbox_name_to_id(Account, Mailbox),
+    {ok, MailboxId} = switchboard_jmap:mailbox_name_to_id(Account, Mailbox),
     Resp = [{mailboxId, MailboxId},
             {messageId,
-             switchboard_jmap:message_id(MailboxId, proplists:get_value(uid, Item))}],
+             switchboard_jmap:message_id(MailboxId, proplists:get_value(uid, Item))},
+            {account, Account}],
     Reply = {<<"newMessage">>, Resp, undefined},
     lager:debug("Worker: Received new msg: ~p", [Item]),
     {reply, {text, switchboard_jmap:encode([Reply])}, Req, State};
