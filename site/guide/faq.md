@@ -56,19 +56,3 @@ it is specifically intended to take the pain out of real time email
 processing across many users. IMAP is a sharp, if sometimes low-level
 and difficult, tool and will remain preferable for general purpose
 email tasks.
-
-### What's a simple example of Switchboard being used?
-
-Switchboard's first role was sending new email push notifications to
-the [Spatch iOS app](http://spatch.co). Due to mobile process
-backgrounding restrictions and battery abuse, it's difficult to
-monitor for new emails client-side. Instead, the Spatch app securely
-posts users' OAuth tokens to a server running Switchboard, which
-begins to monitor the accounts for incoming emails. When a new email
-arrives, Switchboard notifies a subscribed worker, which then sends
-down a push notification to the app.
-
-In this case, Switchboard handled creating the IMAP connections,
-keeping tabs on new emails coming down, and giving the worker
-the data that it needed to send down a nicely formatted push
-notification.
