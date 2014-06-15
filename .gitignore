@@ -11,4 +11,8 @@ switchboard.tar.gz
 .erlang.mk.packages.v1
 relx
 
+# Other
 site/_site
+
+# Etc
+.projectile
