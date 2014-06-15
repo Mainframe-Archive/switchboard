@@ -42,11 +42,14 @@ commands being in need of an upgrade, this isn't recommended.
 
 At the moment, the Switchboard client interface is a subset of
 [JMAP](http://jmap.io), and the worker interface is a variation on
-it. The first 8 sections of the JMAP spec provide a rationale for
-using JMAP over HTTP/websockets, and describes the structure of a JMAP
-exchange, the data model, and data types.
+it. The documentation on this page is sufficient to use Switchboard,
+and contains links to relevant portions of the JMAP spec. But, if you
+are interested in learning more about JMAP, the first 8 sections of
+the JMAP spec is very intersting, providing a rationale for using JMAP
+over HTTP/websockets, and describing the structure of a JMAP exchange,
+the data model, and data types.
 
-TL;DR the 8 sections: a client connects to the server over a
+A Switchboard worker or client connects to the server over a
 websocket. If you're running Switchboard locally, the URL defaults to
 `ws://127.0.0.1:8080/clients`. Data is encoded as UTF8 JSON. Clients
 issue a list of commands to the server in the form
