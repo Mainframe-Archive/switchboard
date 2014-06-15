@@ -41,6 +41,9 @@ you can use Homebrew if you're on Mac OS X, else check
 for the appropriate package/architecture and installation
 instructions.
 
+Windows support is coming in the form of
+[vagrant](https://github.com/thusfresh/switchboard/issues/20).
+
 This snippet will clone the project, build Switchboard, package it
 into a release, and start it:
 
