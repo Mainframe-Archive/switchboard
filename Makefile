@@ -20,7 +20,7 @@ endif
 DEPS            = lager gproc cowboy jsx
 dep_lager	= https://github.com/basho/lager.git 2.0.3
 dep_gproc	= https://github.com/uwiger/gproc 0.3
-dep_cowboy	= https://github.com/extend/cowboy 0.9.0
+dep_cowboy	= https://github.com/extend/cowboy 0.10.0
 dep_jsx		= https://github.com/talentdeficit/jsx v1.4.5
 
 include erlang.mk
@@ -49,8 +49,8 @@ update-docs: docs
 S3CMD_CONF	= .s3cmd
 S3CMD		= s3cmd -c $(S3CMD_CONF)
 
-switchboard.tar.gz: _rel
-	tar -s/_rel/switchboard/ -cvf $@ $<
+$(PROJECT).tar.gz: _rel
+	tar -s/_rel// -cvf $@ $<
 
 $(S3CMD_CONF):
 	$(S3CMD) --configure
