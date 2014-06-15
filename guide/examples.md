@@ -12,7 +12,40 @@ Switchboard allows developers to develop a wide variety of clients.
 This section will point you towards existing example clients, as well
 as walk you through how to write your own client in Ruby.
 
-### Javascript Client
+Switchboard's first role was sending new email push notifications to
+the [Spatch iOS app](http://spatch.co). Due to mobile process
+backgrounding restrictions and battery abuse, it's difficult to
+monitor for new emails client-side. Instead, the Spatch app securely
+posts users' OAuth tokens to a server running Switchboard, which
+begins to monitor the accounts for incoming emails. When a new email
+arrives, Switchboard notifies a subscribed worker, which then sends
+down a push notification to the app.
+
+In this case, Switchboard handled creating the IMAP connections,
+keeping tabs on new emails coming down, and giving the worker
+the data that it needed to send down a nicely formatted push
+notification.
+
+### Python Worker/Client and Examples
+
+There is a Switchboard worker/client
+[Python implementation](https://github.com/jtmoulia/switchboard-python).
+The repository's README explains how to get connected to Switchboard,
+and run the examples.
+
+The examples include workers for:
+
+<ul class="bulletPoints1">
+  <li>
+    Sending Apple push notifications to an iOS app as new emails arrive.
+  </li>
+  <li>
+    Sending a text message via <a href="https://www.twilio.com/">Twilio</a>
+    as new emails arrive.
+  </li>
+</ul>
+
+### Javascript Worker/Client
 
 Since the Switchboard protocol uses JSON over WebSockets, it's only fitting for
 there to be a JavaScript client. Switchboard comes packaged with one.
@@ -25,13 +58,9 @@ browser's javascript console and try them out.  The sourcefile
 contains comments mapping out common components of a Switchboard
 client, and is a great reference for understanding the interfaces.
 
-{::comment}
-### Push Notifications
-{:/comment}
-
 ### Ruby Sample App Tutorial - Email Dropbox Uploader
 
-Follow this example tutorial to build your first `switchboard` client
+Follow this example tutorial to build your first Switchboard client
 in Ruby. This simple example, to be run in the command line, syncs
 attachments from a user's emails to his or her Dropbox.
 
@@ -41,7 +70,7 @@ First off, make sure switchboard is running on your local server (see
 [Switchboard Installation](/switchboard/guide/install/
 "Installation") for details)
 
-After the `switchboard` server is up, you're ready to start building
+After the Switchboard server is up, you're ready to start building
 your Ruby client so you can communicate with it.
 
 To get started, create the following `Gemfile`:
@@ -95,7 +124,7 @@ EM.run {
 
 
 The `Faye::Websocket::Client` takes an url to listen to, so you can use
-the default local `switchboard` url. The client responds to the usual
+the default local Switchboard url. The client responds to the usual
 websocket methods, which currently output notifications/data to the
 console upon being called. When the client receives a message from the server,
 it'll parse it for later use.
@@ -108,13 +137,13 @@ awesome-Dropbox-uploader.rb for the rest of the tutorial) you'll see:
 {% endhighlight %}
 
 ...and nothing else. This is because without adding an account to
-`switchboard` it doesn't know what to send your way. So close your 
+Switchboard it doesn't know what to send your way. So close your 
 client for the moment (`Ctrl + c`, upon which you'll see a closing
 message) and move on to the next section: adding an account.
 
 #### Adding/listening to an account
 
-The `switchboard` client protocol is currently a subset of
+The Switchboard client protocol is currently a subset of
 [JMAP](http://jmap.io/), with data encoded in `UTF8 JSON`. Clients can
 issue commands in the form `[["methodName", {options}]]`, using the
 `send` method. This example uses Switchboard's plain auth:
@@ -146,7 +175,7 @@ it'll automatically connect, and you should see the message
 
 Although you're now connected there's one last thing you've got to do
 before you'll start getting emails through. We need to tell
-`switchboard` which mailbox to listen to. That's easily done with the
+Switchboard which mailbox to listen to. That's easily done with the
 `watchMailboxes` command, which takes as argument a list of mailboxes.
 
 {% highlight ruby %}
@@ -221,7 +250,7 @@ You'll need to interpolate the values into your command to the server (this mean
 
 
 Now when you run your 'awesome-Dropbox-uploader' you're prompted to fill
-in your Gmail username and password, then `Switchboard` automatically
+in your Gmail username and password, then Switchboard automatically
 connects and listens to your inbox for you. Pretty sweet!
 
 So now your client's in pretty good shape. Apart from one pretty
