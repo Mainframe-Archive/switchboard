@@ -4,11 +4,10 @@ layout: guide
 
 ## What is Switchboard?
 
-Switchboard provides high-level tools for managing IMAP clients across
-multiple email accounts and providers, and an API allowing external
-workers to process emails as they arrive. It handles the boilerplate
-of IMAP connection management and new email monitoring so that you can
-focus on innovating around email.
+Switchboard is a framework for processing email. It consists of a core that
+maintains a connection to an IMAP server and routes event notifications to a
+set of workers. The workers nteract with the IMAP server through a simple API
+exposed by the Switchboard core.
 
 ### Features
 
