@@ -7,7 +7,9 @@ h3 {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; fon
 h4 {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1.125em !important; line-height: 26px; color:#FFF;}
 p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1em !important; color:#FFF; line-height: 25px;}
 
-
+body {
+    position: relative;
+}
 
 .container {width: 94%;}
 
@@ -670,4 +672,14 @@ pre {
 p.float-right {
     float: right;
     margin-right: 45px;
+}
+
+.footer {
+   position:absolute;
+   bottom:-150px;
+   width:100%;
+}
+
+.buttonBottom {
+    padding-bottom: 100px;
 }
