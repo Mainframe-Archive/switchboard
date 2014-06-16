@@ -10,8 +10,7 @@ exposed by the Switchboard core.
 ## Documentation
 
 See the [site](http://switchboard.spatch.co) for
-[Installation](http://switchboard.spatch.co/install/) and [Getting
-Started](http://switchboard.spatch.co/whatis/) instructions, as well as other
+[Installation](http://switchboard.spatch.co/install/) instructions, as well as other
 topics.
 
 You're more than welcome to [contribute](CONTRIBUTING.md).
