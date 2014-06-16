@@ -2,6 +2,7 @@
 title: Switchboard
 email: switchboard@librelist.com
 description: "Switchboard handles the boilerplate of server-side email processing, leaving you free to create the logic."
+baseurl: ""
 url: "http://switchboard.spatch.co"
 
 # Build settings
