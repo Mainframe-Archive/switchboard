@@ -9,11 +9,16 @@ exposed by the Switchboard core.
 
 ## Documentation
 
-See the [site](http://switchboard.spatch.co) for
-[Installation](http://switchboard.spatch.co/install/) instructions, as well as other
-topics.
+To begin using Switchboard, refer to the website documentation. This will take you from installation, to setting up a Switchboard worker or client.
 
-You're more than welcome to [contribute](CONTRIBUTING.md).
+To get Switchboard up and running, take a look at the [install](http://switchboard.spatch.co/install/) page.
+
+To see an example of how Switchboard can be used, see the [Examples](http://switchboard.spatch.co/examples/) page with examples and walkthroughs on:
+
+- Sending email push notifications
+- Storing email image attachments to a Dropbox folder
+
+To see documenation of the Switchboard core Erlang modules and functions, see the [API Docs](http://switchboard.spatch.co/doc/).
 
 ## License
 
