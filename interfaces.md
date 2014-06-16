@@ -266,4 +266,4 @@ S: [["messages", {"state": "TODO",
                     }]}]]
 {% endhighlight %}
 
-Next up: [examples]({{site.baseurl}}/guide/examples).
+Next up: [examples]({{site.baseurl}}/examples).

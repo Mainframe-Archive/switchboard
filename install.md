@@ -20,7 +20,7 @@ startup/control script. You can run it without arguments to see a list
 of its commands.
 
 Because you won't be building Switchboard forom source, the
-[worker/client section]({{site.baseurl}}/guide/interfaces) will
+[worker/client section]({{site.baseurl}}/interfaces) will
 probably be most interesting to you next. Check out the
 [Switchboard Erlang API]({{site.baseurl}}/doc) or
 [example]({{site.baseurl}}/buide/example) section for directions on
@@ -64,4 +64,4 @@ make
 Please create an issue if there were any problems.
 
 Next up:
-[worker and client interfaces]({{site.baseurl}}/guide/interfaces).
+[worker and client interfaces]({{site.baseurl}}/interfaces).
