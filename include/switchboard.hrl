@@ -1,7 +1,7 @@
 %%------------------------------------------------------------------------------
 %% @author Thomas Moulia <jtmoulia@pocketknife.io>
 %%
-%% @copyright Copyright (c) 2014, Spatch
+%% @copyright Copyright (c) 2014, ThusFresh Inc.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
