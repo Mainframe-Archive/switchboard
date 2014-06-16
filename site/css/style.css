@@ -666,3 +666,8 @@ pre {
 .contribute a {
     font-size: 1em !important;
 }
+
+p.float-right {
+    float: right;
+    margin-right: 45px;
+}
