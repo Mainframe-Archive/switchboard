@@ -26,3 +26,9 @@ still an antiquated and burdensome process, requiring major human
 effort to handle what should be simple. Spatch solves this fundamental
 issue by re-thinking how communication works and in particular by
 focusing on structuring context within messages.
+
+
+
+
+
+
