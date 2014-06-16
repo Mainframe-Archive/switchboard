@@ -11,7 +11,7 @@ process emails as they arrive.
 See the
 [guide](http://switchboard.spatch.co)
 for
-[Installation](httpr//switchboard.spatch.co/guide/install/)
+[Installation](http://switchboard.spatch.co/guide/install/)
 and
 [Getting Started](http://switchboard.spatch.co/guide/whatis/)
 instructions, as well as other topics.
