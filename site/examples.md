@@ -67,7 +67,7 @@ attachments from a user's emails to his or her Dropbox.
 #### Setup
 
 First off, make sure switchboard is running on your local server (see
-[Switchboard Installation](/switchboard/guide/install/
+[Switchboard Installation](/switchboard/install/
 "Installation") for details)
 
 After the Switchboard server is up, you're ready to start building

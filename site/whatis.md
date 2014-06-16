@@ -65,10 +65,10 @@ take you from installation, to setting up a Switchboard worker or
 client.
 
 To get Switchboard up and running, take a look at the
-[install]({{site.baseurl}}/guide/install) pages.
+[install]({{site.baseurl}}/install) pages.
 
 To see an example of how Switchboard can be used, see the
-[Examples]({{site.baseurl}}/guide/examples) pages with examples and
+[Examples]({{site.baseurl}}/examples) pages with examples and
 walkthroughs on:
 
 <ul class="bulletPoints1">

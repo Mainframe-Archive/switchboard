@@ -12,7 +12,7 @@ personal use, great care should be taken to ensure that both
 Switchboard and its environment are secure.
 
 When deploying Switchboard, you *must* understand the differences
-between the [worker and client](/guide/interfaces) interfaces. Unless
+between the [worker and client](/interfaces) interfaces. Unless
 you have a good reason otherwise, the worker interface should
 never be publicly exposed.
 

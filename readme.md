@@ -9,11 +9,11 @@ process emails as they arrive.
 ## Documentation
 
 See the
-[guide](http://switchboard.spatch.co)
+[site](http://switchboard.spatch.co)
 for
-[Installation](http://switchboard.spatch.co/guide/install/)
+[Installation](http://switchboard.spatch.co/install/)
 and
-[Getting Started](http://switchboard.spatch.co/guide/whatis/)
+[Getting Started](http://switchboard.spatch.co/whatis/)
 instructions, as well as other topics.
 
 You're more than welcome to [contribute](CONTRIBUTING.md).

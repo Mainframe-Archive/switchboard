@@ -1,1 +1,1 @@
-see site/guide/install.md
+see http://switchboard.spatch.co/install

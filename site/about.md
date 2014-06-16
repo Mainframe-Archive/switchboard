@@ -7,9 +7,7 @@ layout: page
 *Switchboard* was born out of our (the [Spatch](http://spatch.co)
 team) need for a cloud based email processing framework. We started
 working in early 2014 with [Thomas Moulia](http://pocketknife.io) who
-let the architecting and development process. Switchboard is a
-framework for managing connections across IMAP providers and exposes a
-simple client API for creating plugins. In June 2014, we made
+led the architecting and development process. In June 2014, we made
 Switchboard available as open source project with the aim to free
 developers from the plumbing of server-side email processing, allowing
 them to focus on creating innovative and useful email plugins. We
