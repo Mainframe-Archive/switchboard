@@ -6,7 +6,7 @@ layout: guide
 
 Switchboard is a framework for processing email. It consists of a core that
 maintains a connection to an IMAP server and routes event notifications to a
-set of workers. The workers nteract with the IMAP server through a simple API
+set of workers. The workers interact with the IMAP server through a simple API
 exposed by the Switchboard core.
 
 ### Features

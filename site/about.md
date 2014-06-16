@@ -20,7 +20,7 @@ licensed open source project.
 
 *Spatch* is an innovative startup working on redefining the way digital
 communication works. Email's ubiquity and decentralized architecture
-are it’s greatest strengths and the reason it has yet to be
+are its greatest strengths and the reason it has yet to be
 replaced. However, managing and acting upon the deluge of messages is
 still an antiquated and burdensome process, requiring major human
 effort to handle what should be simple. Spatch solves this fundamental
