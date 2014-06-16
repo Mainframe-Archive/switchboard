@@ -18,7 +18,7 @@ exposed by the Switchboard core.
 </li>
 <li>
   Switchboard handles the boilerplate, leaving the logic to you
-  &mdash; Swtichboard frees you from the plumbing of server-side email
+  &mdash; Switchboard frees you from the plumbing of server-side email
   monitoring and fetching, allowing you to focus on your products
   and services.
 </li>
