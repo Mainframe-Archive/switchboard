@@ -1,0 +1,109 @@
+@author Thomas Moulia <jtmoulia@pocketknife.io>
+@copyright Copyright (c) 2014, ThusFresh, Inc.
+@title Switchboard
+
+@doc Switchboard is a <a target="_parent" href="http://spatch.co/">Spatch</a> product.
+
+Switchboard is an application which provides high-level tools for
+managing IMAP clients across multiple email accounts and providers,
+and an API allowing workers to process emails as they arrive. It
+handles the boilerplate of IMAP connection management and new email
+monitoring so that you can focus on innovating around email.
+
+<h3>Hacking on Switchboard</h3>
+
+<h4>Switchboard Erlang API</h4>
+
+The quickest way to interact with Switchboard is through the application's
+Erlang API. Assuming Switchboard is running, `./switchboard remote_console'
+will attach a remote console to the running application. Here's
+an example session:
+
+
+```
+%% Subscribe to new emails messages.
+true = switchboard:subscribe(new).
+
+%% List the active accounts. Assuming no one has been here first, there should be none.
+[] = switchboard:accounts().
+
+%% Add a new account. (XOAUTH2 is also supported)
+switchboard:add({ssl, <<"imap.gmail.com">>, 993},
+                {plain, <<"youremail@gmail.com">>, <<"yourpassword">>},
+                [<<"INBOX">>]).
+
+%% List the now active account.
+[<<"youremail@gmail.com">>] = switchboard:accounts().
+
+%% Send yourself an email, wait a minute, then flush the message queue to see it.
+flush().
+
+%% Stop the account from being monitored.
+ok = switchboard:stop(<<"youremail@gmail.com">>).
+
+%% Unsubscribe from new messages.
+true = switchboard:unsubscribe(new).
+'''
+
+See `src/switchboard.erl' for more detailed documentation of the
+public interfaces.
+
+
+<h4>Finding and Building the Documentation</h4>
+
+- You are Here
+
+Documentation of the core modules is provided as in-source comments
+using <a href="http://www.erlang.org/doc/apps/edoc/chapter.html">edoc</a>
+formatting. If you'd rather have the documentation as html, run `make
+docs', and then point your browser to `doc/index.html'.
+
+The `switchboard' module provides the public Erlang interface for the
+Switchboard application, and exposes the controls for adding and
+removing accounts, and subscribing to event channels via
+<a href="https://github.com/uwiger/gproc">`uwiger/gproc'</a>.
+
+`imap' is a partial imap client. Though not fully mature, it's written
+as a single `gen_server' so that it can easily be dropped into other
+projects.
+
+By default, documentation is not created for private functions.
+Please open an issue if this causes any problems.
+
+
+<h4>Connecting a Shell</h4>
+
+You can attach an Erlang shell to a running Switchboard application via
+
+```
+./switchboard/remote_console
+'''
+
+From the erlang shell, try
+
+```
+switchboard:accounts().  %% -> [Accounts]
+'''
+
+Note: `switchboard:accounts/0' returns the list of accounts which
+are actively being monitored. If no accounts have been added, this
+is the empty list.
+
+
+<h4>Finding and Running Tests</h4>
+
+At the moment, all tests are written in EUnit and must be called
+from a running Switchboard application. Most tests are written in
+a module separate from the code which they are testing. These
+modules are kept in `src/test/eunit'.
+
+For example, `switchboard:test().' run at the Erlang console
+will run all of the tests in the `switchboard' module.
+`switchboard:test_all()' will run all tests listed in the function call --
+hopefully all of the eunit tests in the application.
+
+The `TEST' and `LIVE_TEST' provide boolean controls for knocking
+out tests, keeping them out of compiled production code.
+
+Tests for a module are automatically run by `reloader.erl' when a file
+is reloaded (credit for `reloader.erl' goes to `mochi/mochiweb').

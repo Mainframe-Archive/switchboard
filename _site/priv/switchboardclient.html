@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Switchboard Client</title>
+    <link href="http://alexgorbatchev.com/pub/sh/current/styles/shThemeDefault.css" rel="stylesheet" type="text/css" />
+    <link href="http://alexgorbatchev.com/pub/sh/current/styles/shCore.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <h3>Try this out in your browser's js console:</h3>
+
+    <h4>Worker</h4>
+    <pre>
+      var worker = new switchboard.Worker("ws://127.0.0.1:8080/workers");
+      worker.connect(ConnSpec, function(resp) { console.log(resp); });
+      worker.watchAll(function(resp) { console.log(resp); });
+      worker.getMailboxes(ConnSpec.auth.username, function (resp) { console.log(resp); });
+      worker.watchMailboxes(ConnSpec.auth.username, function (resp) { console.log(resp); });
+    </pre>
+
+    <h4>Client</h4>
+    <pre class="brush: js">
+      var client = new switchboard.Client("ws://127.0.0.1:8080/clients", ConnSpec);
+      client.getMailboxes(function(resp) { console.log(resp); });
+      client.watchMailboxes(["INBOX"], function(resp) { console.log("Watching"); });
+    </pre>
+
+
+    <script src="http://alexgorbatchev.com/pub/sh/current/scripts/shCore.js" type="text/javascript"></script>
+    <script src="http://alexgorbatchev.com/pub/sh/current/scripts/shAutoloader.js" type="text/javascript"></script>
+    <script src="http://alexgorbatchev.com/pub/sh/current/scripts/shBrushCss.js" type="text/javascript"></script>
+    <script type="text/javascript" src="/static/js/switchboardclient.js"></script>
+  </body>
+</html>

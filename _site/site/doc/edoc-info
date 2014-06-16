@@ -1,0 +1,4 @@
+%% encoding: UTF-8
+{application,switchboard}.
+{packages,[]}.
+{modules,[imap,reloader,rfc2822,switchboard,switchboard_jmap]}.

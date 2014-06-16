@@ -1,0 +1,58 @@
+<h2 id="installation">Installation</h2>
+
+<h3 id="impatient-on-os-x-install-from-binary-tarball">Impatient? On OS X? Install from binary tarball.</h3>
+
+<p>To quickly get Switchboard up and running on Mac OS X, you can use a prebuilt
+release. If you want to do a quick install (I recommend verifying the contents
+of the URL):</p>
+
+<div class="highlight"><pre><code class="bash">curl -sL <span class="s2">&quot;https://github.com/thusfresh/switchboard/releases/download/0.1.1/switchboard.tar.gz&quot;</span> <span class="p">|</span> tar -xz <span class="o">&amp;&amp;</span> ./switchboard/bin/switchboard console</code></pre></div>
+
+<p>That will download, unpack, and start the application,
+dumping you at the Erlang console. <code>switchboard/bin/switchboard</code> is the
+startup/control script. You can run it without arguments to see a list
+of its commands.</p>
+
+<p>Because you won’t be building Switchboard forom source, the
+<a href="/interfaces">worker/client section</a> will
+probably be most interesting to you next. Check out the
+<a href="/doc">Switchboard Erlang API</a> or
+<a href="/buide/example">example</a> section for directions on
+how to start fetching emails.</p>
+
+<h3 id="install-from-source">Install from Source</h3>
+
+<p>Switchboard uses
+<a href="https://github.com/extend/erlang.mk">extend/erlang.mk</a> and
+<a href="https://github.com/erlware/relx">erlware/relx</a> to build and
+package the Switchboard application.</p>
+
+<p>These instructions assume a UNIX-like system with <code>make</code> and <code>git</code> on
+your path, and an installation of Erlang/OTP R16B03. To install Erlang
+you can use Homebrew if you’re on Mac OS X, else check
+<a href="https://www.erlang-solutions.com/downloads/download-erlang-otp">here</a>
+for the appropriate package/architecture and installation
+instructions.</p>
+
+<p>Windows support is coming in the form of
+<a href="https://github.com/thusfresh/switchboard/issues/20">vagrant</a>.</p>
+
+<p>This snippet will clone the project, build Switchboard, package it
+into a release, and start it:</p>
+
+<div class="highlight"><pre><code class="bash">git clone https://github.com/thusfresh/switchboard switchboard
+<span class="nb">cd </span>switchboard
+<span class="c"># Make the release</span>
+make
+<span class="c"># Start the application</span>
+./_rel/bin/switchboard start
+<span class="c"># Check whether the application is running</span>
+./_rel/bin/switchboard ping  <span class="c"># -&gt; ping</span>
+
+<span class="c"># Print more options, like stopping Switchboard</span>
+./_rel/bin/switchboard</code></pre></div>
+
+<p>Please create an issue if there were any problems.</p>
+
+<p>Next up:
+<a href="/interfaces">worker and client interfaces</a>.</p>

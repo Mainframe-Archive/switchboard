@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Switchboard
+</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<h1>Switchboard
+</h1>
+<p>Copyright © Copyright (c) 2014, ThusFresh, Inc.</p>
+<p><b>Authors:</b> Thomas Moulia (<a href="mailto:jtmoulia@pocketknife.io"><tt>jtmoulia@pocketknife.io</tt></a>).</p>
+<p>Switchboard is a <a target="_parent" href="http://spatch.co/">Spatch</a> product.</p>
+
+<p>Switchboard is an application which provides high-level tools for
+managing IMAP clients across multiple email accounts and providers,
+and an API allowing workers to process emails as they arrive. It
+handles the boilerplate of IMAP connection management and new email
+monitoring so that you can focus on innovating around email.</p>
+
+<h3>Hacking on Switchboard</h3>
+
+<h4>Switchboard Erlang API</h4>
+
+<p>The quickest way to interact with Switchboard is through the application's
+Erlang API. Assuming Switchboard is running, <code>./switchboard remote_console</code>
+will attach a remote console to the running application. Here's
+an example session:</p>
+
+
+<pre>%% Subscribe to new emails messages.
+true = switchboard:subscribe(new).
+
+%% List the active accounts. Assuming no one has been here first, there should be none.
+[] = switchboard:accounts().
+
+%% Add a new account. (XOAUTH2 is also supported)
+switchboard:add({ssl, &lt;&lt;"imap.gmail.com"&gt;&gt;, 993},
+                {plain, &lt;&lt;"youremail@gmail.com"&gt;&gt;, &lt;&lt;"yourpassword"&gt;&gt;},
+                [&lt;&lt;"INBOX"&gt;&gt;]).
+
+%% List the now active account.
+[&lt;&lt;"youremail@gmail.com"&gt;&gt;] = switchboard:accounts().
+
+%% Send yourself an email, wait a minute, then flush the message queue to see it.
+flush().
+
+%% Stop the account from being monitored.
+ok = switchboard:stop(&lt;&lt;"youremail@gmail.com"&gt;&gt;).
+
+%% Unsubscribe from new messages.
+true = switchboard:unsubscribe(new).</pre>
+
+<p>See <code>src/switchboard.erl</code> for more detailed documentation of the
+public interfaces.</p>
+
+
+<h4>Finding and Building the Documentation</h4>
+
+<p>- You are Here</p>
+
+<p>Documentation of the core modules is provided as in-source comments
+using <a href="http://www.erlang.org/doc/apps/edoc/chapter.html">edoc</a>
+formatting. If you'd rather have the documentation as html, run <code>make
+docs</code>, and then point your browser to <code>doc/index.html</code>.</p>
+
+<p>The <code>switchboard</code> module provides the public Erlang interface for the
+Switchboard application, and exposes the controls for adding and
+removing accounts, and subscribing to event channels via
+<a href="https://github.com/uwiger/gproc"><code>uwiger/gproc</code></a>.</p>
+
+<p><code>imap</code> is a partial imap client. Though not fully mature, it's written
+as a single <code>gen_server</code> so that it can easily be dropped into other
+projects.</p>
+
+<p>By default, documentation is not created for private functions.
+Please open an issue if this causes any problems.</p>
+
+
+<h4>Connecting a Shell</h4>
+
+<p>You can attach an Erlang shell to a running Switchboard application via</p>
+
+<pre>./switchboard/remote_console</pre>
+
+<p>From the erlang shell, try</p>
+
+<pre>switchboard:accounts().  %% -&gt; [Accounts]</pre>
+
+<p>Note: <code>switchboard:accounts/0</code> returns the list of accounts which
+are actively being monitored. If no accounts have been added, this
+is the empty list.</p>
+
+
+<h4>Finding and Running Tests</h4>
+
+<p>At the moment, all tests are written in EUnit and must be called
+from a running Switchboard application. Most tests are written in
+a module separate from the code which they are testing. These
+modules are kept in <code>src/test/eunit</code>.</p>
+
+<p>For example, <code>switchboard:test().</code> run at the Erlang console
+will run all of the tests in the <code>switchboard</code> module.
+<code>switchboard:test_all()</code> will run all tests listed in the function call --
+hopefully all of the eunit tests in the application.</p>
+
+<p>The <code>TEST</code> and <code>LIVE_TEST</code> provide boolean controls for knocking
+out tests, keeping them out of compiled production code.</p>
+
+Tests for a module are automatically run by <code>reloader.erl</code> when a file
+is reloaded (credit for <code>reloader.erl</code> goes to <code>mochi/mochiweb</code>).
+<hr>
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jun 8 2014, 21:24:14.</i></p>
+</body>
+</html>
