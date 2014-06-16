@@ -2,7 +2,7 @@
 layout: guide
 ---
 
-## How to Contribute
+## Community
 
 Switchboard seeks to develop a large and active community around its
 open source project. Whether you are a veteran or a newcomer, if you
@@ -12,6 +12,17 @@ may have found a bug, we’re more than happy to assist.
 Switchboard source code is hosted on <a
 href="https://github.com/thusfresh/switchboard">GitHub</a>, and if
 you need support there are several options.
+
+### Mailing Lists
+
+There is a general mailing list at <switchboard@librelist.com>. This
+mailing list is meant for topics which aren't related to development
+of the Switchboard application.
+[archive](http://librelist.com/browser/switchboard/)
+
+For Switchboard development discussion that goes further than issue
+reporting, you can use <switchboard-dev@librelist.com>.
+[archive](http://librelist.com/browser/switchboarddev/)
 
 ### Contributing Patches
 
@@ -32,19 +43,6 @@ include the steps for recreating the bug and relevant logs - kept in
 please report it using
 [Switchboard's GitHub issues](https://github.com/thusfresh/switchboard),
 or even better, submit a pull request.
-
-
-### Mailing Lists
-
-There is a general mailing list at <switchboard@librelist.com>. This
-mailing list is meant for topics which aren't related to development
-of the Switchboard application.
-[archive](http://librelist.com/browser/switchboard/)
-
-For Switchboard development discussion that goes further than issue
-reporting, you can use <switchboard-dev@librelist.com>.
-[archive](http://librelist.com/browser/switchboarddev/)
-
 
 ### StackOverflow
 

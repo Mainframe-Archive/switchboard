@@ -52,7 +52,7 @@ there to be a JavaScript client. Switchboard comes packaged with one.
 
 To try the client out, start the Switchboard application and point
 your browser at
-[http://127.0.0.1:8080/jsclient](http://127.0.0.1:8080/jsclient) - it
+`http://127.0.0.1:8080/jsclient` - it
 should display a page with some getting started commands. Open your
 browser's javascript console and try them out.  The sourcefile
 contains comments mapping out common components of a Switchboard
