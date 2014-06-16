@@ -11,7 +11,7 @@ release. If you want to do a quick install (I recommend verifying the contents
 of the URL):
 
 {% highlight bash %}
-curl -sL "https://www.dropbox.com/s/hyu587h9cazlnc0/switchboard.tar.gz" | tar -xz && ./switchboard/bin/switchboard console
+curl -sL "https://github.com/thusfresh/switchboard/releases/download/0.1.1/switchboard.tar.gz" | tar -xz && ./switchboard/bin/switchboard console
 {% endhighlight %}
 
 That will download, unpack, and start the application,
