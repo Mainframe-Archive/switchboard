@@ -2,7 +2,7 @@
 //! version : 0.1.0
 //! authors : Thomas Moulia <jtmoulia@gmail.com>
 //! license : BSD 3-Clause
-//! http://thusfresh.github.io/switchboard
+//! http://switchboard.spatch.co
 
 /**
  * Client connections provide a connection specification to the

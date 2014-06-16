@@ -4,7 +4,7 @@
 
 The Switchboard site is built by [jekyll](http://jekyllrb.com/), and
 hosted using [GitHub Pages](http://pages.github.com). Check it out
-[here](http://thusfresh.github.io/switchboard).
+[here](http://switchboard.spatch.co).
 
 To build the site locally, you must have
 [jekyll installed](http://jekyllrb.com/docs/installation/). If you're
