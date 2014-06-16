@@ -2,7 +2,7 @@
 {application, switchboard,
  [
   {description, "Conduct monitoring and operations across email accounts"},
-  {vsn, "0.1.0"},
+  {vsn, "0.1.1"},
   {modules, []},
   {registered, [switchboard_sup]},
   {applications, [
