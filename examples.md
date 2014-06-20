@@ -80,7 +80,7 @@ source 'https://rubygems.org'
 ruby '2.1.1' # we haven't tested other versions yet. Let us know if you have any issues
 
 gem 'faye-websocket'
-gem 'Dropbox-sdk'
+gem 'dropbox-sdk'
 {% endhighlight %}
 
 `faye-websocket` is a pretty handy gem extracted from the
