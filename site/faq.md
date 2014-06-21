@@ -23,6 +23,28 @@ HTTP server's
 [rewrite](http://nginx.org/en/docs/http/ngx_http_rewrite_module.html)
 [rules](http://httpd.apache.org/docs/current/mod/mod_rewrite.html).
 
+### Does Switchboard use SMTP?
+
+No, the Switchboard core doesn't deliver emails, and therefore doesn't
+use SMTP.
+
+The workers/clients could be treated as relays with mail being
+delivered to them via SMTP. However, I can't see the relative
+benefits.
+
+### Is Switchboard just Lamson?
+
+Despite Switchboard and [Lamson](lamsonproject.org) sharing the "email
+processing" tagline, they actually complement each other rather than
+conflict.
+
+Lamson simplifies the mechanics of processing emails using a neat
+FSM/routing on the to field mechanism. Switchboard provides interfaces
+for handling emails via IMAP as they arrive to multiple accounts. It
+is currently agnostic to how the emails should be processed, and
+Lamson provides a potential solution.
+
+
 ### Why is Switchboard unable to perform a PLAIN LOGIN for my Gmail account?
 
 If you are unable to loin to a Gmail account using `PLAIN`
