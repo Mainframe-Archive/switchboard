@@ -893,6 +893,8 @@ clean_imap_props([{string, Key}, {string, Value} | Rest], Acc) ->
     [address()].
 clean_addresses(nil) ->
     [];
+clean_addresses({string, <<"">>}) ->
+    [];
 clean_addresses(Addresses) ->
     clean_addresses(Addresses, []).
 
