@@ -79,7 +79,7 @@
 -record(state, {connspec = none :: imap:connspec() | none,
                 account = none :: imap:account(),
                 owner = true :: boolean(),
-                watched_mailboxes = sets:new() :: set()}).
+                watched_mailboxes = sets:new() :: sets:set()}).
 
 
 
@@ -183,7 +183,7 @@ get_mailboxes(Account) ->
 get_mailboxes(Account, Args) when is_binary(Account), is_list(Args) ->
     switchboard:with_imap(Account, fun(IMAP) -> get_mailboxes(IMAP, Args) end);
 get_mailboxes(IMAP, Args) when is_pid(IMAP) ->
-    {ok, ListResps} = imap:clean_list(imap:call(IMAP, {list, <<"">>, <<"*">>})),
+    {ok, ListResps} = imap:clean_list(imap:call(IMAP, {list, <<"\"\"">>, <<"*">>})),
     get_mailboxes(IMAP, Args, ListResps).
 
 %% @private
@@ -257,7 +257,7 @@ websocket_init(_TransportName, Req, _Opts) ->
 %% @private
 websocket_handle({text, Data}, Req, State) when is_binary(Data) ->
     Calls = decode(Data),
-    {State2, Resps} = call_all(State, Calls),
+    {Resps, State2} = call_all(Calls, State),
     {reply, {text, encode(Resps)}, Req, State2};
 websocket_handle(Data, Req, State) ->
     lager:warning("Unexpected data: ~p", [Data]),
@@ -302,7 +302,7 @@ call_all(Cmds, State) ->
 -spec call_all([jmap()], #state{}, [jmap()]) ->
     {[jmap()], #state{}}.
 call_all([], State, Resps) ->
-    {State, lists:reverse(Resps)};
+    {lists:reverse(Resps), State};
 call_all([Cmd | Rest], State, Resps) ->
     {Resp, State2} = call(Cmd, State),
     call_all(Rest, State2, [Resp | Resps]).
@@ -402,7 +402,7 @@ call(Cmd, State) ->
 %% which are being watched.
 %% @todo this function should use mailboxIds
 -spec watch_mailboxes(imap:account(), [proplists:property()]) ->
-    {ok, set()} | {error, _}.
+    {ok, sets:set()} | {error, _}.
 watch_mailboxes(Account, Args) ->
     case proplists:get_value(<<"list">>, Args) of
         undefined ->
