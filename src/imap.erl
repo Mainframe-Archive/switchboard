@@ -511,7 +511,7 @@ handle_call(_Request, _From, State) ->
 %% @private
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
-    % ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
+    %% ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
     {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
@@ -705,7 +705,7 @@ cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
 cmd_to_list({uid, Cmd}) ->
     [<<"UID">> | cmd_to_list(Cmd)];
 cmd_to_list(list) ->
-    [<<"LIST">>, <<"">>, <<"%">>];
+    [<<"LIST">>, <<"\"\"">>, <<"%">>];
 cmd_to_list({list, Reference, Match}) ->
     [<<"LIST">>, Reference, Match];
 cmd_to_list({status, Mailbox}) ->
