@@ -35,7 +35,7 @@ Switchboard uses
 package the Switchboard application.
 
 These instructions assume a UNIX-like system with `make` and `git` on
-your path, and an installation of Erlang/OTP R16B03. To install Erlang
+your path, and an installation of Erlang/OTP R17. To install Erlang
 you can use Homebrew if you're on Mac OS X, else check
 [here](https://www.erlang-solutions.com/downloads/download-erlang-otp)
 for the appropriate package/architecture and installation
