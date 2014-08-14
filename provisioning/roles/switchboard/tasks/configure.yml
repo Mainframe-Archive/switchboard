@@ -1,0 +1,12 @@
+---
+- name: template out vm.args file
+  template: src=vm.args.j2 dest="{{switchboard_root}}/etc/vm.args" mode=755
+  tags:
+    - vmargs
+    - configure
+
+- name: template out the vars.config file
+  template: src=vars.config.j2 dest="{{switchboard_root}}/etc/vars.config" mode=755
+  tags:
+    - vars
+    - configure

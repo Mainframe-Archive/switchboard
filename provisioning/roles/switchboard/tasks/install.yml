@@ -1,0 +1,16 @@
+---
+- name: ensure apt cache is up to date
+  apt: update_cache=yes
+  sudo: yes
+  tags:
+    - builder
+
+- name: ensure packages are installed
+  action: apt name={{item}}
+  with_items:
+    - make
+    - postgresql
+    - git
+  sudo: yes
+  tags:
+    - builder

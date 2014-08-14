@@ -22,7 +22,7 @@ var ConnSpec = {host: "imap.gmail.com",
                     password: "i>V99JuMVEs;"}};
 
 // The Switchboard application's default client endpoint.
-var URL = "ws://127.0.0.1:8080/clients";
+var CLIENT_URL = "ws://192.168.50.2:8080/clients";
 
 
 (function() {

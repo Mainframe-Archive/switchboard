@@ -1,0 +1,4 @@
+check process switchboard
+      with pidfile /var/run/switchboard.pid
+      start = "service switchboard start"
+      stop = "service switchboard stop"

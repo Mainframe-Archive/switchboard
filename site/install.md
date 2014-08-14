@@ -4,64 +4,39 @@ layout: guide
 
 ## Installation
 
-### Impatient? On OS X? Install from binary tarball.
+### Install Dependencies
 
-To quickly get Switchboard up and running on Mac OS X, you can use a prebuilt
-release. If you want to do a quick install (I recommend verifying the contents
-of the URL):
+Switchboard uses [Vagrant](vagrantup.com) for cross-platform local
+setup, and [Ansible](started with Vagrant) for deployment.
 
-{% highlight bash %}
-curl -sL "https://github.com/thusfresh/switchboard/releases/download/0.1.1/switchboard.tar.gz" | tar -xz && ./switchboard/bin/switchboard console
-{% endhighlight %}
+Before getting started you must install:
 
-That will download, unpack, and start the application,
-dumping you at the Erlang console. `switchboard/bin/switchboard` is the
-startup/control script. You can run it without arguments to see a list
-of its commands.
+- [Virtualbox](https://www.virtualbox.org/wiki/Downloads)
+- [Vagrant](https://docs.vagrantup.com/v2/installation/index.html)
+- [Ansible](http://docs.ansible.com/intro_installation.html)
 
-Because you won't be building Switchboard forom source, the
-[worker/client section]({{site.baseurl}}/interfaces) will
-probably be most interesting to you next. Check out the
-[Switchboard Erlang API]({{site.baseurl}}/doc) or
-[example]({{site.baseurl}}/buide/example) section for directions on
-how to start fetching emails.
+### Setup Switchboard
 
-
-### Install from Source
-
-Switchboard uses
-[extend/erlang.mk](https://github.com/extend/erlang.mk) and
-[erlware/relx](https://github.com/erlware/relx) to build and
-package the Switchboard application.
-
-These instructions assume a UNIX-like system with `make` and `git` on
-your path, and an installation of Erlang/OTP R17. To install Erlang
-you can use Homebrew if you're on Mac OS X, else check
-[here](https://www.erlang-solutions.com/downloads/download-erlang-otp)
-for the appropriate package/architecture and installation
-instructions.
-
-Windows support is coming in the form of
-[vagrant](https://github.com/thusfresh/switchboard/issues/20).
-
-This snippet will clone the project, build Switchboard, package it
-into a release, and start it:
+Run the following at your shell to get a virtual machine up and
+running Switchboard. The virtual machine can be accessed at
+`192.168.50.2`.
 
 {% highlight bash %}
 git clone https://github.com/thusfresh/switchboard switchboard
 cd switchboard
-# Make the release
-make
-# Start the application
-./_rel/bin/switchboard start
-# Check whether the application is running
-./_rel/bin/switchboard ping  # -> ping
+# Create a virtual machine, compile Switchboard, and start it up
+vagrant up
+# Login to the virtual machine
+vagrant ssh
 
-# Print more options, like stopping Switchboard
-./_rel/bin/switchboard
+## Using Switchboard from within the virtual machine:
+# To see the Switchboard service's options
+service switchboard
+# To connect a remote shell to the switchboard process
+/home/vagrant/switchboard/_rel/switchboard/bin/switchboard remote_console
 {% endhighlight %}
 
-Please create an issue if there were any problems.
+Please create an issue if there were any problems getting setup.
 
 Next up:
 [worker and client interfaces]({{site.baseurl}}/interfaces).

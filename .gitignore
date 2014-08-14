@@ -10,9 +10,14 @@ switchboard.tar.gz
 
 .erlang.mk.packages.v1
 relx
+etc/vm.args
+etc/vars.config
 
 # Other
 site/_site
 
 # Etc
 .projectile
+
+# Vagrant
+.vagrant/
