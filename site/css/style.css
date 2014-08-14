@@ -1,21 +1,30 @@
-/** * Eric Meyer's Reset CSS v2.0 (http://meyerweb.com/eric/tools/css/reset/) * http://cssreset.com */html, body, div, span, applet, object, iframe,h1, h2, h3, h4, h5, h6, p, blockquote, pre,a, abbr, acronym, address, big, cite, code,del, dfn, em, img, ins, kbd, q, s, samp,small, strike, strong, sub, sup, tt, var,b, u, i, center,dl, dt, dd, ol, ul, li,fieldset, form, label, legend,table, caption, tbody, tfoot, thead, tr, th, td,article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary,time, mark, audio, video {	margin: 0;	padding: 0;	border: 0;	font-size: 100%;	font: inherit;	vertical-align: baseline;}/* HTML5 display-role reset for older browsers */article, aside, details, figcaption, figure, footer, header, hgroup, menu, nav, section {	display: block;}body {	line-height: 1;}ol, ul {	list-style: none !important;}blockquote, q {	quotes: none;}blockquote:before, blockquote:after,q:before, q:after {	content: '';	content: none;}table {	border-collapse: collapse;	border-spacing: 0;}
+/** * Eric Meyer's Reset CSS v2.0 (http://meyerweb.com/eric/tools/css/reset/) * http://cssreset.com */html, body, div, span, applet, object, iframe,h1, h2, h3, h4, h5, h6, p, blockquote, pre,a, abbr, acronym, address, big, cite, code,del, dfn, em, img, ins, kbd, q, s, samp,small, strike, strong, sub, sup, tt, var,b, u, i, center,dl, dt, dd, ol, ul, li,fieldset, form, label, legend,table, caption, tbody, tfoot, thead, tr, th, td,article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary,time, mark, audio, video {	margin: 0;	padding: 0;	border: 0;	font-size: 100%;	font: inherit;	vertical-align: baseline;}/* HTML5 display-role reset for older browsers */article, aside, details, figcaption, figure, footer, header, hgroup, menu, nav, section {	display: block;}body {	line-height: 1;}ol, ul {list-style: none;}blockquote, q {	quotes: none;}blockquote:before, blockquote:after,q:before, q:after {	content: '';	content: none;}table {	border-collapse: collapse;	border-spacing: 0;}
 
 h1 {font-family: 'Exo 2', Helvetica, sans-serif; font-size: 3.5em !important; color:#FFF;}
 h2 {font-family: 'Exo 2', Helvetica, sans-serif; font-size: 2.2em !important; color:#FFF;}
 h5 {font-family: 'Exo 2', Helvetica, sans-serif; font-size: 2em !important; color:#FFF;}
 h3 {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1.375em !important; line-height: 30px; color:#FFF;}
 h4 {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1.125em !important; line-height: 26px; color:#FFF;}
-p {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1em !important; color:#FFF; line-height: 25px;}
+p, ul {font-family: 'Source Sans Pro', Helvetica, sans-serif; font-weight: 300; font-size: 1em !important; color:#FFF; line-height: 25px;}
 
-
+ul {
+    list-style-type: square;
+    padding-left: 2em;
+}
 
 .container {width: 94%;}
 
-
 .headerMobile {
-     display: none;
+    display: none;
 }
 
+#header-links {
+    font-family: 'Exo 2', Helvetica, sans-serif;
+    font-weight: normal;
+    font-size: 20px;
+    line-height: 54px;
+    list-style-type: none !important;
+}
 
 .logo {
 	float: left;
@@ -616,28 +625,6 @@ pre {
      
 }
 
-
-.bulletPoints1 {
-    list-style-type: disc;
-    padding-left: 30px;
-    margin-top: 0 !important;
-    font-family: 'source sans pro', helvetica, sans-serif;
-    font-weight: lighter;
-    line-height: 20px;
-}
-
-.bulletPoints1 a, .bulletPoints2 a {text-decoration: none; color: #FFF !important;}
-.bulletPoints1 a:hover, .bulletPoints2 a:hover {text-decoration: underline; color: #FFF;}
-
-.bulletPoints2 {
-    list-style-type: circle;
-    padding-left: 60px;
-    font-family: 'source sans pro', helvetica, sans-serif;
-    font-weight: lighter;
-    line-height: 20px;
-    margin-top: 10px !important;
-    margin-bottom: 10px;
-}
 
 #installation {
     padding-top: 130px; margin-top: -100px;

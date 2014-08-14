@@ -39,7 +39,7 @@ processing" tagline, they actually complement each other rather than
 conflict.
 
 Lamson simplifies the mechanics of processing emails using a neat
-FSM/routing on the to field mechanism. Switchboard provides interfaces
+FSM/routing on the `To` field mechanism. Switchboard provides interfaces
 for handling emails via IMAP as they arrive to multiple accounts. It
 is currently agnostic to how the emails should be processed, and
 Lamson provides a potential solution.
