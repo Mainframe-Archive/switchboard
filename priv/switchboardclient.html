@@ -10,7 +10,7 @@
 
     <h4>Worker</h4>
     <pre>
-      var worker = new switchboard.Worker("ws://127.0.0.1:8080/workers");
+      var worker = new switchboard.Worker("ws://192.168.50.2:8080/workers");
       worker.connect(ConnSpec, function(resp) { console.log(resp); });
       worker.watchAll(function(resp) { console.log(resp); });
       worker.getMailboxes(ConnSpec.auth.username, function (resp) { console.log(resp); });
@@ -19,7 +19,7 @@
 
     <h4>Client</h4>
     <pre class="brush: js">
-      var client = new switchboard.Client("ws://127.0.0.1:8080/clients", ConnSpec);
+      var client = new switchboard.Client("ws://192.168.50.2:8080/clients", ConnSpec);
       client.getMailboxes(function(resp) { console.log(resp); });
       client.watchMailboxes(["INBOX"], function(resp) { console.log("Watching"); });
     </pre>

@@ -1,0 +1,19 @@
+---
+## ... TODO: issue a PR against relx to resolve the switchboard bin PATH correctly
+# - name: create a symbolic link to the Switchboard binary in the PATH
+#   file: src={{switchboard_bin}} dest=/usr/local/bin/switchboard state=link
+#   sudo: yes
+#   tags:
+#     - service
+#     - link_bin
+
+- name: install the switchboard service
+  template: src=switchboard.j2 dest=/etc/init.d/switchboard mode=1777
+  sudo: yes
+  tags:
+    - service
+
+- name: start the switchboard service
+  service: name=switchboard state=started
+  tags:
+    - service

@@ -1,0 +1,6 @@
+---
+- include: erlang.yml
+- include: install.yml
+- include: configure.yml
+- include: build.yml
+- include: service.yml

@@ -140,6 +140,7 @@
     | {status, mailbox()} | {status, mailbox(), [binary()]}
     | {examine, mailbox()}
     | {select, mailbox()}
+    | {delete, mailbox()}
     | {search, iodata()}
     | {fetch, seqset()} | {fetch, seqset(), [binary()]}
     | {uid, {fetch, seqset()}} | {uid, {fetch, seqset(), [binary()]}}
@@ -509,6 +510,10 @@ handle_call(_Request, _From, State) ->
 
 
 %% @private
+handle_cast({cmd, {'+', ContCmd}, _}, #state{socket=Socket} = State) ->
+    %% Handle continuation commands. Supplies no concurrency guarantees.
+    ok = ssl:send(Socket, cmd_to_data(ContCmd)),
+    {noreply, State};
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
     %% ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
@@ -712,21 +717,29 @@ cmd_to_list({status, Mailbox}) ->
     [<<"STATUS">>, quote_wrap_binary(Mailbox)];
 cmd_to_list({status, Mailbox, Items}) ->
     [<<"STATUS">>, quote_wrap_binary(Mailbox), Items];
-cmd_to_list({select, Mailbox}) ->
-    [<<"SELECT">>, Mailbox];
 cmd_to_list({search, Terms}) ->
     [<<"SEARCH">> | Terms];
-cmd_to_list({examine, Mailbox}) ->
-    [<<"EXAMINE">>, quote_wrap_binary(Mailbox)];
+cmd_to_list({rename, ExistingMailbox, NewMailbox}) ->
+    [<<"RENAME">>, quote_wrap_binary(ExistingMailbox), quote_wrap_binary(NewMailbox)];
 cmd_to_list({fetch, SeqSet}) ->
     cmd_to_list({fetch, SeqSet, <<"full">>});
 cmd_to_list({fetch, SeqSet, Data}) ->
     [<<"FETCH">>, seqset_to_list(SeqSet), list_to_imap_list(Data)];
+cmd_to_list({Cmd, Mailbox}) when Cmd =:= select; Cmd =:= examine; Cmd =:= delete;
+                                 Cmd =:= subscribe, Cmd =:= unsubscribe ->
+    [atom_to_cmd(Cmd), quote_wrap_binary(Mailbox)];
+cmd_to_list(Cmd) when Cmd =:= noop; Cmd =:= idle; Cmd =:= done; Cmd =:= close;
+                      Cmd =:= expunge ->
+    [atom_to_cmd(Cmd)].
 
-cmd_to_list(noop) ->
-    [<<"NOOP">>];
-cmd_to_list(idle) ->
-    [<<"IDLE">>].
+
+%% @private
+%% @doc Returns the atom as a command, i.e. as an uppercase binary.
+-spec atom_to_cmd(atom()) ->
+    binary().
+atom_to_cmd(Cmd) ->
+    CmdString = string:to_upper(atom_to_list(Cmd)),
+    list_to_binary(CmdString).
 
 
 %% @private

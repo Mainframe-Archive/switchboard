@@ -1,0 +1,17 @@
+---
+- name: clean deps
+  command: chdir={{switchboard_root}} rm -rf deps
+  tags:
+    - root
+    - clean
+
+- name: compile source
+  command: chdir={{switchboard_root}} make all
+  tags:
+    - root
+
+- name: root switchboard release
+  command: chdir={{switchboard_root}} make rel
+  tags:
+    - root
+    - rel

@@ -1,0 +1,15 @@
+---
+# Erlang Install
+erlang_deb_url: "http://packages.erlang-solutions.com/site/esl/esl-erlang/FLAVOUR_1_general/esl-erlang_17.1-1~ubuntu~trusty_amd64.deb"
+erlang_deb_dest: /tmp/erlang.deb
+
+# Switchboard Install
+switchboard_root: "{{ansible_env['HOME']}}/switchboard"
+switchboard_rel: "{{switchboard_root}}/_rel/switchboard"
+switchboard_bin: "{{switchboard_rel}}/bin/switchboard"
+
+# Switchboard Erlang Configuration
+# switchboard_release: 0.2.0
+switchboard_cookie: switchboard
+switchboard_host: "{{ansible_host}}"
+switchboard_logs: log

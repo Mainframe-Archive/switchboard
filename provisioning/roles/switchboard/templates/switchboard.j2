@@ -1,0 +1,37 @@
+### BEGIN INIT INFO
+# Provides:          switchboard
+# Short-Description: Start Switchboard Erlang BEAM daemon
+### END INIT INFO
+
+# Using the lsb functions to perform the operations.
+. /lib/lsb/init-functions
+
+# Daemon name -- the executable
+DAEMON="{{switchboard_bin}}"
+
+DaemonCall() {
+    HOME={{ansible_env.HOME}} $DAEMON $@
+}
+
+# If the daemon is not there, then exit.
+test -x $DAEMON || exit 5
+
+case $1 in
+    start|stop|restart)
+        if DaemonCall $1 ; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+    reload)
+        DaemonCall reboot
+        ;;
+    status)
+        DaemonCall ping
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|reload|status}"
+        exit 2
+        ;;
+esac

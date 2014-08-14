@@ -1,0 +1,11 @@
+---
+- name: download the erlang deb
+  get_url: url={{erlang_deb_url}} dest={{erlang_deb_dest}}
+  tags:
+    - builder
+
+- name: install the erlang deb
+  apt: deb={{erlang_deb_dest}}
+  sudo: yes
+  tags:
+    - builder

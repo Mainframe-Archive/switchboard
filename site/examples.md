@@ -52,8 +52,8 @@ there to be a JavaScript client. Switchboard comes packaged with one.
 
 To try the client out, start the Switchboard application and point
 your browser at
-`http://127.0.0.1:8080/jsclient` - it
-should display a page with some getting started commands. Open your
+[`http://192.168.50.2:8080/jsclient`](http://192.168.50.2:8080/jsclient) -
+it should display a page with some getting started commands. Open your
 browser's javascript console and try them out.  The sourcefile
 contains comments mapping out common components of a Switchboard
 client, and is a great reference for understanding the interfaces.
@@ -105,7 +105,7 @@ require 'eventmachine'
 require 'json'
 
 EM.run {
-  ws = Faye::WebSocket::Client.new('ws://127.0.0.1:8080/clients') # this tutorial uses the default switchboard url -> read below for an explanation.
+  ws = Faye::WebSocket::Client.new('ws://192.168.50.2:8080/clients') # this tutorial uses the default switchboard url -> read below for an explanation.
 
   ws.on :open do |event|
     p [:open]
@@ -458,7 +458,7 @@ And then you can call:
 
 {% highlight ruby %}
 EM.run do
-  ws = Faye::WebSocket::Client.new('ws://127.0.0.1:8080/clients')
+  ws = Faye::WebSocket::Client.new('ws://192.168.50.2:8080/clients')
 
   ws.on :open do |event|
     SwitchboardClient::open(ws, email, password)
