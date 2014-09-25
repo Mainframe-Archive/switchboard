@@ -2,8 +2,7 @@
 <html>
   <head>
     <title>Switchboard Client</title>
-    <link href="http://alexgorbatchev.com/pub/sh/current/styles/shThemeDefault.css" rel="stylesheet" type="text/css" />
-    <link href="http://alexgorbatchev.com/pub/sh/current/styles/shCore.css" rel="stylesheet" type="text/css" />
+    <meta charset="UTF-8">
   </head>
   <body>
     <h3>Try this out in your browser's js console:</h3>
@@ -18,16 +17,25 @@
     </pre>
 
     <h4>Client</h4>
-    <pre class="brush: js">
+    <pre>
       var client = new switchboard.Client("ws://192.168.50.2:8080/clients", ConnSpec);
       client.getMailboxes(function(resp) { console.log(resp); });
       client.watchMailboxes(["INBOX"], function(resp) { console.log("Watching"); });
     </pre>
 
+    <p>
+      In these examples, <code>ConnSpec</code> takes the form of
+    </p>
 
-    <script src="http://alexgorbatchev.com/pub/sh/current/scripts/shCore.js" type="text/javascript"></script>
-    <script src="http://alexgorbatchev.com/pub/sh/current/scripts/shAutoloader.js" type="text/javascript"></script>
-    <script src="http://alexgorbatchev.com/pub/sh/current/scripts/shBrushCss.js" type="text/javascript"></script>
+    <pre>
+      {host: "imap.gmail.com",
+        port: 993,
+        auth: {
+          type: "plain",
+          username: ...,
+          password: ...}};
+    </pre>
+
     <script type="text/javascript" src="/static/js/switchboardclient.js"></script>
   </body>
 </html>
