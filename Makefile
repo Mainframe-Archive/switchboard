@@ -22,6 +22,7 @@ dep_lager	= https://github.com/basho/lager.git 2.0.3
 dep_gproc	= https://github.com/uwiger/gproc 0.3
 dep_cowboy	= https://github.com/extend/cowboy 0.10.0
 dep_jsx		= https://github.com/talentdeficit/jsx v1.4.5
+dep_social      = https://github.com/dvv/social
 
 include erlang.mk
 
