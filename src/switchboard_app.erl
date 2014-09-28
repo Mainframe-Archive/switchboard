@@ -88,10 +88,5 @@ get_cowboy_routes(BaseRoutes) ->
         undefined ->
             BaseRoutes;
         {ok, OAuthProviders} ->
-            LiveOAuthProviders =
-                lists:filter(fun({_, P}) ->
-                                     proplists:get_value(client_id, P) =/= undefined
-                             end, OAuthProviders),
-            [{"/auth/:provider/:action", cowboy_social, LiveOAuthProviders}
-             | BaseRoutes]
+            [{"/auth/:provider/:action", cowboy_social, OAuthProviders} | BaseRoutes]
     end.

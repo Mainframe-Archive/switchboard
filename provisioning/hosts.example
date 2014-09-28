@@ -1,5 +1,16 @@
 [switchboard]
+<<<<<<< HEAD
 192.168.0.1 ansible_host=192.168.0.1
 
 [switchboard:vars]
 switchboard_clone=true
+=======
+104.131.101.232 ansible_host=104.131.101.232
+
+[switchboard:vars]
+switchboard_clone=true
+switchboard_git_version=social
+switchboard_git_repo=https://github.com/jtmoulia/switchboard
+switchboard_google_client_id=...
+switchboard_google_client_secret=...
+>>>>>>> improvements to provisioning, switch to my social

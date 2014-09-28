@@ -12,6 +12,7 @@
                   inets,
                   gproc,
                   cowboy,
+                  social,
                   jsx,
                   ssl,
                   eunit

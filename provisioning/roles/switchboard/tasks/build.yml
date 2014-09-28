@@ -6,12 +6,12 @@
     - clean
 
 - name: compile source
-  command: chdir={{switchboard_root}} make all
+  command: chdir={{switchboard_root}} make PROFILE={{switchboard_profile}} app
   tags:
     - root
 
 - name: root switchboard release
-  command: chdir={{switchboard_root}} make rel
+  command: chdir={{switchboard_root}} make PROFILE={{switchboard_profile}} rel
   tags:
     - root
     - rel

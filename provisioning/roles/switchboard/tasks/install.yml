@@ -3,14 +3,23 @@
   apt: update_cache=yes
   sudo: yes
   tags:
-    - builder
+    - install
 
 - name: ensure packages are installed
   action: apt name={{item}}
   with_items:
     - make
-    - postgresql
     - git
   sudo: yes
   tags:
-    - builder
+    - install
+
+- name: clone the switchboard repo
+  action: git accept_hostkey=yes
+              dest={{switchboard_root}}
+              version={{switchboard_git_version}}
+              repo={{switchboard_git_repo}}
+  when: switchboard_clone
+  tags:
+    - install
+    - clone

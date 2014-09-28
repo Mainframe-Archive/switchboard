@@ -10,6 +10,15 @@ switchboard_bin: "{{switchboard_rel}}/bin/switchboard"
 
 # Switchboard Erlang Configuration
 # switchboard_release: 0.2.0
+switchboard_profile: prod
 switchboard_cookie: switchboard
 switchboard_host: "{{ansible_host}}"
 switchboard_logs: log
+switchboard_http_port: 8080
+
+# OAuth config
+switchboard_google_client_id:
+switchboard_google_client_secret:
+
+switchboard_git_version: master
+switchboard_git_repo: https://github.com/thusfresh/switchboard
