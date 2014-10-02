@@ -471,8 +471,17 @@ get_message_list(IMAP, _args, MailboxId) ->
     case select_by_id(IMAP, MailboxId) of
         ok ->
             {ok, {_, Resps}} = imap:call(IMAP, {uid, {search, [<<"ALL">>]}}),
-            [{search, Uids}] = imap:clean(Resps),
-            {ok, [message_id(MailboxId, U) || U <- Uids]};
+            case imap:clean(Resps) of
+                [{search, Uids}] ->
+                    {ok, [message_id(MailboxId, U) || U <- Uids]};
+                Cleaned when length(Cleaned) > 1 ->
+                    case proplists:get_value(search, Cleaned) of
+                        undefined ->
+                            {error, search_error};
+                        Uids ->
+                            {ok, [message_id(MailboxId, U) || U <- Uids]}
+                    end
+            end;
         {error, no_mailbox} ->
             {error, no_mailbox}
     end.
