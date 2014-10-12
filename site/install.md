@@ -53,5 +53,26 @@ network connection and retry.
 Please create an issue if there were any problems getting setup --
 we'd love to get you up and running.
 
+### Provisioning
+
+Switchboard's Ansible provisioning scripts can be used to deploy the
+application on remote servers. To provision a server it must be
+listed in an inventory file.
+
+There is an example inventory file under `provisioning/hosts.example`.
+To customize, list the servers under the `[switchboard]` heading,
+and set custom variables under `[switchboard:vars]`. See
+`provisioning/roles/switchboard/default/main.yml` for a list
+of variables which can be customized.
+
+Coming soon: Description of deploying from your own switchboard repo.
+
+If your inventory is located at `provisioning/hosts`, you can
+provision switchboard by running:
+
+{% highlight bash %}
+ansible-playbook -i provisioning/hosts provisioning/playbook.yml
+{% endhighlight %}
+
 Next up:
 [worker and client interfaces]({{site.baseurl}}/interfaces).
