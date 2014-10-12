@@ -13,6 +13,9 @@ relx
 etc/vm.args
 etc/vars.config
 
+# Provisioning
+provisioning/hosts
+
 # Other
 site/_site
 

@@ -1,0 +1,5 @@
+[switchboard]
+192.168.0.1 ansible_host=192.168.0.1
+
+[switchboard:vars]
+switchboard_clone=true
