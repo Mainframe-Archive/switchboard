@@ -17,12 +17,13 @@ ifeq ($(PROFILE), dev)
 	RELX_OPTS = --dev-mode
 endif
 
-DEPS            = lager gproc cowboy jsx social
+DEPS		= lager gproc cowboy jsx social recon
 dep_lager	= https://github.com/basho/lager.git 2.0.3
 dep_gproc	= https://github.com/uwiger/gproc 0.3
 dep_cowboy	= https://github.com/extend/cowboy 0.10.0
 dep_jsx		= https://github.com/talentdeficit/jsx v1.4.5
-dep_social      = https://github.com/jtmoulia/social cowboy-1.0
+dep_social	= https://github.com/jtmoulia/social cowboy-1.0
+dep_recon	= https://github.com/ferd/recon 2.2.0
 
 include erlang.mk
 
