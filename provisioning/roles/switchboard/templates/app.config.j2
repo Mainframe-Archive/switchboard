@@ -13,6 +13,8 @@
                               " https://www.googleapis.com/auth/userinfo.profile">>},
                     {authorize_uri, <<"https://accounts.google.com/o/oauth2/auth">>},
                     {token_uri, <<"https://accounts.google.com/o/oauth2/token">>},
+                    {imap_host, <<"imap.gmail.com">>},
+                    {imap_port, 993},
                     {callback_hooks, [switchboard_social_oauth]}]}]}
                 {% endif %}
                ]},

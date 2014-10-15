@@ -6,10 +6,7 @@
 
 -export([execute/3]).
 
-
--define(REFRESH_TOKEN_URL, <<"https://accounts.google.com/o/oauth2/token">>).
--define(GMAIL_HOST, <<"imap.gmail.com">>).
--define(GMAIL_PORT, 993).
+-type maybe_binary() :: binary() | undefined.
 
 
 %%==============================================================================
@@ -19,9 +16,11 @@
 %% @doc Start monitoring for the given account.
 %% @todo Execute code in new process to not block page render
 execute(TokenProps, Req, State) ->
+    Options = cowboy_social:get_options(State),
     {ok, Account} = get_account(TokenProps),
-    {ok, Credential} = make_credential(TokenProps, Account),
-    {ok, _} = switchboard:add(Account, Credential),
+    {ok, ConnSpec} = make_connspec(Options),
+    {ok, Auth} = make_auth(TokenProps, Options, Account),
+    {ok, _} = switchboard:add(ConnSpec, Auth, [<<"INBOX">>]),
     {ok, TokenProps, Req, State}.
 
 
@@ -44,32 +43,41 @@ get_account(TokenProps) ->
             {ok, Account}
     end.
 
+
 %% @private
-%% @doc Make a credential.
--spec make_credential(dispatch_social_hook:token_props(), binary()) ->
-    {ok, dispatch_db:credential()} | {error, _}.
-make_credential(TokenProps, Account) ->
-    UserID = uuid:uuid_to_string(uuid:get_v4()),
-    {ok, Auth} = make_auth(TokenProps, Account),
-    {ok, dispatch_db:credential(UserID, ?GMAIL_HOST, ?GMAIL_PORT,
-                                imap:auth_to_props(Auth))}.
+%% @doc make a connspec from the provided options
+-spec make_connspec([proplists:prop()]) ->
+    {ok, imap:connspec()} | {error, _}.
+make_connspec(Options) ->
+    make_connspec(proplists:get_value(imap_host, Options),
+                  proplists:get_value(imap_port, Options)).
+
+-spec make_connspec(maybe_binary(), integer() | undefined) ->
+    {ok, imap:connspec()} | {error, _}.
+make_connspec(undefined, _Port) ->
+    {error, {missing, imap_host}};
+make_connspec(_Host, undefined) ->
+    {error, {missing, imap_port}};
+make_connspec(Host, Port) ->
+    {ok, {ssl, Host, Port}}.
 
 
 %% @private
 %% @doc Make an Auth datastructure.
--spec make_auth(dispatch_social_hook:token_props(), binary()) ->
+-spec make_auth([proplists:prop()], [proplists:prop()], binary()) ->
     {ok, imap:auth()} | {error, _}.
-make_auth(TokenProps, Account) ->
+make_auth(TokenProps, Options, Account) ->
     make_auth(Account,
               proplists:get_value(refresh_token, TokenProps),
+              proplists:get_value(token_uri, Options),
               proplists:get_value(access_token, TokenProps)).
 
 %% @private
 %% @doc Helper for make_auth.
 %% @see make_auth/2
--spec make_auth(binary(), binary() | undefined, binary() | undefined) ->
+-spec make_auth(binary(), maybe_binary(), maybe_binary(), maybe_binary()) ->
     {ok, imap:auth()} | {error, _}.
-make_auth(Account, undefined, AccessToken) ->
+make_auth(Account, undefined, _, AccessToken) when AccessToken =/= undefined ->
     {ok, {xoauth2, Account, AccessToken}};
-make_auth(Account, RefreshToken, _AccessToken) ->
-    {ok, {xoauth2, Account, {RefreshToken, ?REFRESH_TOKEN_URL}}}.
+make_auth(Account, RefreshToken, RefreshURI, _) ->
+    {ok, {xoauth2, Account, {RefreshToken, RefreshURI}}}.

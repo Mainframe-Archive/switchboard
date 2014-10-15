@@ -15,7 +15,8 @@
                   social,
                   jsx,
                   ssl,
-                  eunit
+                  eunit,
+                  recon
                  ]},
   {mod, {switchboard_app, []}},
   {env, []}
