@@ -43,6 +43,14 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
+-define(BASE_ROUTES,
+        [{<<"/static/[...]">>, cowboy_static,
+          {priv_dir, switchboard, "static"}},
+         {<<"/jsclient">>, cowboy_static,
+          {priv_file, switchboard, "switchboardclient.html"}},
+         {<<"/workers">>, switchboard_workers, []},
+         {<<"/clients">>, switchboard_jmap, []}]).
+
 
 %% ===================================================================
 %% Application callbacks
@@ -50,13 +58,7 @@
 
 start(_StartType, _StartArgs) ->
     Dispatch = cowboy_router:compile(
-                 [{'_',
-                   [{<<"/static/[...]">>, cowboy_static,
-                     {priv_dir, switchboard, "static"}},
-                    {<<"/jsclient">>, cowboy_static,
-                     {priv_file, switchboard, "switchboardclient.html"}},
-                    {<<"/workers">>, switchboard_workers, []},
-                    {<<"/clients">>, switchboard_jmap, []}]}]),
+                 [{'_', get_cowboy_routes()}]),
     Port = case application:get_env(cowboy_port) of
                undefined     -> 8080;
                {ok, EnvPort} -> EnvPort
@@ -68,3 +70,23 @@ start(_StartType, _StartArgs) ->
 
 stop(_State) ->
     ok.
+
+
+%% ===================================================================
+%% Internal
+%% ===================================================================
+
+%% @private
+%% @equiv get_cowboy_routes(?BASE_ROUTES).
+get_cowboy_routes() ->
+    get_cowboy_routes(?BASE_ROUTES).
+
+%% @private
+%% @doc Returns the cowboy dispatch data structure, including OAuth if configured.
+get_cowboy_routes(BaseRoutes) ->
+    case application:get_env(oauth_providers) of
+        undefined ->
+            BaseRoutes;
+        {ok, OAuthProviders} ->
+            [{"/auth/:provider/:action", cowboy_social, OAuthProviders} | BaseRoutes]
+    end.

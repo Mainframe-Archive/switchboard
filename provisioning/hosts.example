@@ -3,3 +3,7 @@
 
 [switchboard:vars]
 switchboard_clone=true
+switchboard_git_version=master
+switchboard_git_repo=https://github.com/thusfresh/switchboard
+switchboard_google_client_id=...
+switchboard_google_client_secret=...

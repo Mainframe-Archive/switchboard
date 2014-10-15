@@ -154,6 +154,8 @@ handle_info(timeout, State) ->
     {noreply, State};
 handle_info({idle, {'*', [_, <<"EXISTS">>]}}, State) ->
     {noreply, update_uid_internal(State)};
+handle_info({idle, {'*', [_, <<"EXPUNGE">>]}}, State) ->
+    {noreply, update_uid_internal(State)};
 handle_info({idle, {'+', [<<"idling">>]}}, State) ->
     {noreply, State};
 handle_info({idle, Msg}, State) ->

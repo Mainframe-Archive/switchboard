@@ -579,17 +579,25 @@ cmds_complete(Imap) ->
 
 %% @private
 %% @doc Call the list of commands in a separate process. Used in startup.
+%% Success responses will be discarded, and errors will take down the imap
+%% client
 -spec cmds_call(pid(), [cmd()]) ->
     pid().
 cmds_call(Imap, Cmds) ->
     spawn_link(fun() ->
                        lists:foreach(
                          fun({cmd, {call, Cmd}}) ->
-                                 {ok, _} = imap:call(Imap, Cmd);
+                                 case imap:call(Imap, Cmd) of
+                                     {ok, _}  -> ok;
+                                     {'+', _} -> ok
+                                 end;
                             ({cmd, {cast, Cmd}}) ->
-                                 {ok, _} = imap:cast(Imap, Cmd);
+                                 ok = imap:cast(Imap, Cmd);
                             ({cmd, {call, Cmd}, Opts}) ->
-                                 {ok, _} = imap:call(Imap, Cmd, Opts);
+                                 case imap:call(Imap, Cmd, Opts) of
+                                     {ok, _}  -> ok;
+                                     {'+', _} -> ok
+                                 end;
                             ({cmd, {cast, Cmd}, Opts}) ->
                                  ok = imap:cast(Imap, Cmd, Opts)
                          end, Cmds),
@@ -901,13 +909,15 @@ clean_imap_props([{string, Key}, {string, Value} | Rest], Acc) ->
 
 
 %% @private
-%% doc Clean the provided address.
+%% @doc Clean the provided address.
 -spec clean_addresses([[{string, binary()}]]) ->
     [address()].
 clean_addresses(nil) ->
     [];
 clean_addresses({string, <<"">>}) ->
     [];
+clean_addresses({string, Address}) ->
+    [address, {email, strip_address(Address)}];
 clean_addresses(Addresses) ->
     clean_addresses(Addresses, []).
 
@@ -925,6 +935,17 @@ clean_addresses([[RawName, _, {string, MailBox}, {string, Host}] | Rest], Acc) -
                                end} |
                      Acc]).
 
+%% @private
+%% If the address is wrapped by `<...>', strip the angle brackets
+strip_address(Address) when is_binary(Address) ->
+    case {binary:first(Address), binary:last(Address)} of
+        {$<, $>} ->
+            Length = byte_size(Address) - 2,
+            <<$<, Stripped:Length/binary, $>>> = Address,
+            Stripped;
+        _ ->
+            Address
+    end.
 %%==============================================================================
 %% Response Tokenizing + Parsing
 %%==============================================================================

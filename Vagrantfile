@@ -11,7 +11,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provision "ansible" do |ansible|
     ansible.playbook = "provisioning/playbook.yml"
     ansible.groups = {"switchboard" => ["default"]}
-    ansible.extra_vars = {"switchboard_host" => IP}
+    ansible.extra_vars = {"switchboard_host" => IP,
+                          "switchboard_clone" => false,
+                          "switchboard_profile" => "dev"}
     ansible.skip_tags = ["clean"]
 
     # To run a subset of tasks, use e.g. TAGS="builder,switchboard" vagrant provision
