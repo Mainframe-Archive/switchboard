@@ -2,19 +2,17 @@
 - name: make deps
   command: chdir={{switchboard_root}} make PROFILE={{switchboard_profile}} deps
   tags:
-    - root
+    - deps
     - build
-    - clean
 
-- name: compile source
+- name: make app
   command: chdir={{switchboard_root}} make PROFILE={{switchboard_profile}} app
   tags:
-    - root
+    - app
     - build
 
-- name: root switchboard release
+- name: switchboard release
   command: chdir={{switchboard_root}} make PROFILE={{switchboard_profile}} rel
   tags:
-    - root
-    - build
     - rel
+    - build
