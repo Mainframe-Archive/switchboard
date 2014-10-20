@@ -1,4 +1,10 @@
 ---
+- name: ensure apt cache is up to date
+  action: apt update_cache=yes cache_valid_time=86400
+  sudo: yes
+  tags:
+    - builder
+
 - name: download the erlang deb
   get_url: url={{erlang_deb_url}} dest={{erlang_deb_dest}}
   tags:
