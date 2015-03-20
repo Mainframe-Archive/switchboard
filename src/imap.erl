@@ -126,8 +126,8 @@
 -type auth() :: auth_plain() | auth_xoauth2().
 
 %% opt() specifies an option that the imap process can be started with -- see start_link
--type opt() :: {init_callback, fun(() -> ok)}
-    | {post_init_callback, fun(() -> ok)}
+-type opt() :: {init_callback, fun((term) -> ok)}
+    | {post_init_callback, fun((term) -> ok)}
     | {cmds, [{cmd, cmd()}]}.
 
 %% response() is passed into the applicable commands dispatch fun
@@ -239,12 +239,12 @@ start_link(ConnSpec) ->
 %%         `[{cmd, {login, ...}}, {cmd, {select, ...}}, {cmd, idle}]'.
 %%     </dd>
 %%
-%%   <dt>`{init_callback, fun(() -> ok)}'</dt>
+%%   <dt>`{init_callback, fun((State) -> ok)}'</dt>
 %%     <dd>This function will be called during the IMAP client's `init'. It is useful
 %%         for more complex registration, e.g. using `gproc'.
 %%     </dd>
 %%
-%%   <dt>`{post_init_callback, fun(() -> ok)}'</dt>
+%%   <dt>`{post_init_callback, fun((State) -> ok)}'</dt>
 %%     <dd>This function will be called after `init', and after all commands
 %%         specified by the `cmds' option have successfully completed.
 %%     </dd>
