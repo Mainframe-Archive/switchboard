@@ -489,10 +489,6 @@ init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
                             Timeout) of
         {ok, Socket} ->
             {ok, InitCallback(#state{connspec=ConnSpec, opts=Opts, socket=Socket})};
-        {error, ssl_not_started} ->
-            %% If ssl app isn't started, attempt to restart and then retry init
-            start_app(ssl),
-            init({ConnSpec, Opts});
         {error, Reason} ->
             {stop, Reason}
     end.
