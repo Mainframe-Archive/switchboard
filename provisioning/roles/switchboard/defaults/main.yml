@@ -1,6 +1,6 @@
 ---
 # Erlang Install
-erlang_deb_url: "http://packages.erlang-solutions.com/site/esl/esl-erlang/FLAVOUR_1_general/esl-erlang_17.1-1~ubuntu~trusty_amd64.deb"
+erlang_deb_url: "http://packages.erlang-solutions.com/site/esl/esl-erlang/FLAVOUR_3_general/esl-erlang_17.1-1~ubuntu~trusty_amd64.deb"
 erlang_deb_dest: /tmp/erlang.deb
 
 # Switchboard Install
