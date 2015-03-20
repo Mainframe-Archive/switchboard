@@ -43,7 +43,7 @@
 -define(DISPATCH, <<"mail.dispatch.test@gmail.com">>).
 -define(DISPATCH_MAILBOX, <<"INBOX">>).
 -define(DISPATCH_CONN_SPEC, {ssl, <<"imap.gmail.com">>, 993}).
--define(DISPATCH_AUTH, {plain, ?DISPATCH, <<"i>V99JuMVEs;">>}).
+-define(DISPATCH_AUTH, {plain, ?DISPATCH, <<"pUjp2>oV]CE4yQ">>}).
 -endif.
 
 -define(DEBUG, true).

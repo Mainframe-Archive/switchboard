@@ -488,13 +488,7 @@ init({{SocketType, Host, Port, SocketOpts, Timeout} = ConnSpec, Opts}) ->
     case SocketType:connect(binary_to_list(Host), Port, SocketOpts ++ SocketOptDefaults,
                             Timeout) of
         {ok, Socket} ->
-            State = InitCallback(#state{connspec=ConnSpec, opts=Opts, socket=Socket}),
-            case proplists:get_value(post_init_callback, Opts) of
-                undefined ->
-                    {ok, State};
-                _ ->
-                    {ok, State, 0}
-            end;
+            {ok, InitCallback(#state{connspec=ConnSpec, opts=Opts, socket=Socket})};
         {error, ssl_not_started} ->
             %% If ssl app isn't started, attempt to restart and then retry init
             start_app(ssl),
@@ -543,10 +537,7 @@ handle_info({ssl, Socket, Data},
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
     % ?LOG_WARNING(handle_info, "Socket Closed: ~p", [self()]),
-    {stop, normal, State};
-handle_info(Info, State) ->
-    ?LOG_WARNING(handle_info, "unexpected: ~p", [Info]),
-    {noreply, State}.
+    {stop, normal, State}.
 
 
 %% @private
