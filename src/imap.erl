@@ -691,11 +691,8 @@ cmd_to_data(InternalCmd) ->
 cmd_to_list({login, {plain, Username, Password}}) ->
     [<<"LOGIN">>, Username, Password];
 cmd_to_list({login, {xoauth2, Account, {RefreshToken, RefreshUrl}}}) ->
-    %% @todo wrap up the req
-    case httpc:request(get, {RefreshUrl, RefreshToken, []}, [], []) of
-        ok -> ok
-    end,
-    AccessToken = <<>>,
+    ReqParams = {RefreshUrl, [{"TOKEN", RefreshToken}], [], []},
+    {ok, {_,_,AccessToken}} = httpc:request(get, ReqParams, [], []),
     cmd_to_list({login, {xoauth2, Account, AccessToken}});
 cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
     Encoded = base64:encode(<<"user=", Account/binary,
