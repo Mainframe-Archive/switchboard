@@ -691,8 +691,10 @@ cmd_to_data(InternalCmd) ->
 cmd_to_list({login, {plain, Username, Password}}) ->
     [<<"LOGIN">>, Username, Password];
 cmd_to_list({login, {xoauth2, Account, {RefreshToken, RefreshUrl}}}) ->
-    ReqParams = {RefreshUrl, [{"TOKEN", RefreshToken}], [], []},
-    {ok, {_,_,AccessToken}} = httpc:request(get, ReqParams, [], []),
+    Headers = [{"TOKEN", binary_to_list(RefreshToken)}],
+    Request = {binary_to_list(RefreshUrl), Headers},
+    Opts = [{body_format, binary}],
+    {ok, {_, _, AccessToken}} = httpc:request(get, Request, [], Opts), 
     cmd_to_list({login, {xoauth2, Account, AccessToken}});
 cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
     Encoded = base64:encode(<<"user=", Account/binary,
