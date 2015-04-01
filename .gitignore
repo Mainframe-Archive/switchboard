@@ -10,8 +10,7 @@ switchboard.tar.gz
 
 .erlang.mk.packages.v1
 relx
-etc/vm.args
-etc/vars.config
+switchboard.conf
 
 # Provisioning
 provisioning/hosts
