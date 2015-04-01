@@ -1,6 +1,6 @@
 ---
 - name: template out the vars.config file
-  template: src=vars.config.j2 dest="{{switchboard_root}}/etc/vars.config" mode=700
+  template: src=switchboard.config.j2 dest="{{switchboard_root}}/etc/vars.config" mode=700
   tags:
     - vars
     - configure
