@@ -1,0 +1,5 @@
+## Name of the node
+-name switchboard@{{ host|default:"127.0.0.1" }}
+
+## Cookie for distributed erlang
+-setcookie {{ cookie|default:"switchboard" }}
