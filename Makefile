@@ -17,8 +17,7 @@ ifeq ($(PROFILE), dev)
 	RELX_OPTS = --dev-mode
 endif
 
-DEPS		= lager gproc cowboy jsx social recon
-dep_social	= git https://github.com/jtmoulia/social httpc
+DEPS		= lager gproc cowboy jsx recon
 dep_recon	= git https://github.com/ferd/recon 2.2.0
 
 include erlang.mk
