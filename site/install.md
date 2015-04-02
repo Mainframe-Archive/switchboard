@@ -21,7 +21,7 @@ So, before setting up Switchboard you must install:
 - [Ansible](http://docs.ansible.com/intro_installation.html) -
   tested on 1.6.1
 
-### Setup Switchboard
+### Vagrant Setup
 
 Run the following at your shell to get a virtual machine up and
 running Switchboard. Once running, the virtual machine is assigned
@@ -42,6 +42,31 @@ service switchboard
 /home/vagrant/switchboard/_rel/switchboard/bin/switchboard remote_console
 {% endhighlight %}
 
+### Development Setup
+
+Switchboard can also be run independent of a Virtualbox VM.
+
+This requires
+[Erlang](http://docs.basho.com/riak/1.2.1/tutorials/installation/Installing-Erlang/)
+(tested with R16B and above) and GNU make.
+
+To build the project run:
+
+{% highlight bash %}
+make
+{% endhighlight %}
+
+This creates a Switchboard release with an init script at
+`_rel/switchboard/bin/switchboard`.
+
+### Configuration
+
+Switchboard can be configured via a `switchboard.conf` file located
+under Switchboard root directory. If this file isn't present, the
+configuration is set to default values.
+
+See `switchboard.conf.example` for a Switchboard config kitchen-sink
+example.
 
 ### Troubleshooting
 

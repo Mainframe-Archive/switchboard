@@ -1,0 +1,32 @@
+%% -*- mode: erlang -*-
+%% Switchboard Config.
+%%
+%% Configure switchboard by uncommenting configuration lines and customizing
+%% the value.
+%%
+%% These variables are overlaid against configuration files when the
+%% release is built. To refresh the release's configuration, it must
+%% be rebuilt.
+
+
+%% The node name is set to `switchboard@{{ host }}'.
+{host, "127.0.0.1"}.
+
+%% The distributed erlang cookie.
+{cookie, "switchboard"}.
+
+%% The API's HTTP listener port.
+{http_port, 8080}.
+
+%% The directory to save logs under.
+{log_dir, "log"}.
+
+
+%% Google OAuth: To OAuth using Google, both the `google_client_id' and
+%% `google_client_secret' must be set.
+
+%% Google OAuth client id. No default.
+{google_client_id, "$client_id"}.
+
+%% Google OAuth client secret [string]. No default.
+{google_client_secret, "$secret_id"}.

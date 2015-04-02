@@ -1,18 +1,6 @@
 ---
-- name: template out vm.args file
-  template: src=vm.args.j2 dest="{{switchboard_root}}/etc/vm.args" mode=700
-  tags:
-    - vmargs
-    - configure
-
 - name: template out the vars.config file
-  template: src=vars.config.j2 dest="{{switchboard_root}}/etc/vars.config" mode=700
+  template: src=switchboard.config.j2 dest="{{switchboard_root}}/etc/vars.config" mode=700
   tags:
     - vars
-    - configure
-
-- name: template out the app.config file
-  template: src=app.config.j2 dest="{{switchboard_root}}/etc/app.config" mode=700
-  tags:
-    - appconfig
     - configure
