@@ -62,7 +62,8 @@
          clean_list/1,
          get_parts_by_type/2, get_parts_by_type/3,
          auth_to_account/1,
-         auth_to_props/1]).
+         auth_to_props/1,
+         start_app/1]).
 
 
 %% Callback exports
@@ -690,12 +691,12 @@ cmd_to_data(InternalCmd) ->
     iodata().
 cmd_to_list({login, {plain, Username, Password}}) ->
     [<<"LOGIN">>, Username, Password];
-cmd_to_list({login, {xoauth2, Account, {RefreshToken, RefreshUrl}}}) ->
-    Headers = [{"TOKEN", binary_to_list(RefreshToken)}],
-    Request = {binary_to_list(RefreshUrl), Headers},
-    Opts = [{body_format, binary}],
-    {ok, {_, _, AccessToken}} = httpc:request(get, Request, [], Opts), 
-    cmd_to_list({login, {xoauth2, Account, AccessToken}});
+cmd_to_list({login, {xoauth2, _, {_, _}} = RefreshAuth}) ->
+    %% @todo wrap up the req
+    case switchboard_oauth:refresh_to_access_token(RefreshAuth) of
+        {ok, AccessAuth} ->
+            cmd_to_list({login, AccessAuth})
+    end;
 cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
     Encoded = base64:encode(<<"user=", Account/binary,
                              "auth=Bearer ", AccessToken/binary,
