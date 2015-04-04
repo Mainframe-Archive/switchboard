@@ -754,7 +754,7 @@ auth_for_switchboard(<<"xoauth2">>, Auth) ->
                     proplists:get_value(<<"token">>, TokenProps);
                 <<"refresh">> ->
                     {proplists:get_value(<<"token">>, TokenProps),
-                     proplists:get_value(<<"url">>, TokenProps)}
+                     proplists:get_value(<<"provider">>, TokenProps)}
                 end,
     {xoauth2, Username, Token}.
 

@@ -15,9 +15,9 @@
 %% application's `oauth_providers' configuration.
 -spec refresh_to_access_token(imap:auth_xoauth2()) ->
     {ok, imap:auth_xoauth2()} | {error, _}.
-refresh_to_access_token({xoauth2, Account, {_, _}} = Auth) ->
+refresh_to_access_token({xoauth2, _, {_, _}} = Auth) ->
     %% @todo wrap up the req
-    case oauth_for(Account) of
+    case oauth_for(Auth) of
         {ok, Props} ->
             case get_values([refresh_url,
                              client_id,
@@ -39,16 +39,16 @@ refresh_to_access_token({xoauth2, Account, {_, _}} = Auth) ->
                               binary(),
                               {binary(), binary()}) ->
     {ok, imap:auth_xoauth2()} | {error, _}.
-refresh_to_access_token({xoauth2, Account, {RefreshToken, RefreshUrl}},
+refresh_to_access_token({xoauth2, Account, {RefreshToken, _Provider}},
                         RefreshUrl,
                         {ClientID, ClientSecret})
   when is_binary(ClientID) andalso is_binary(ClientSecret) ->
-    Body = url:encode([{client_id, ClientID},
+    Body = jsx:encode([{client_id, ClientID},
                        {client_secret, ClientSecret},
                        {refresh_token, RefreshToken},
                        {grant_type, "refresh_token"}]),
     ContentType = "application/x-www-form-urlencoded",
-    case httpc:request(post, {RefreshUrl, [], ContentType, Body}, [], []) of
+    case httpc:request(post, {binary_to_list(RefreshUrl), [], ContentType, Body}, [], []) of
         {ok, {{_, 200, _}, _, Body}} ->
             Props = jsx:decode(Body),
             AccessToken = proplists:get_value(<<"access_token">>, Props),
@@ -100,20 +100,32 @@ domain_to_provider(_) -> {error, undefined}.
 
 %% @private
 %% @doc Get oauth settings for the provided account.
--spec oauth_for(binary()) ->
+-spec oauth_for(imap:auth_xoauth2()) ->
     {ok, {ClientID :: string, ClientSecret :: string}} | {error, _}.
-oauth_for(Account) ->
+oauth_for({xoauth2, Account, {_, Provider}}) ->
     case application:get_env(switchboard, oauth_providers) of
         undefined ->
             {error, no_oauth};
         {ok, Providers} ->
-            oauth_for(Account, Providers)
+            case oauth_for(provider, Provider, Providers) of
+              {ok, OAuthProvider} ->
+                {ok, OAuthProvider};
+              {error, _} ->
+                oauth_for(email, Account, Providers)
+            end
     end.
 
 %% @private
--spec oauth_for(binary(), [proplists:property()]) ->
+-spec oauth_for(atom(), binary(), [proplists:property()]) ->
     {ok, {ClientID :: string, ClientSecret :: string}} | {error, _}.
-oauth_for(Account, Providers) ->
+oauth_for(provider, Provider, Providers) ->
+    case proplists:get_value(Provider, Providers) of
+      undefined ->
+        {error, {no_provider_oauth, Provider}}; 
+      OAuthProvider ->
+        {ok, OAuthProvider}
+    end;
+oauth_for(email, Account, Providers) ->
     case split_account(Account) of
         {ok, {_Username, {DomainName, _TLD}}} ->
             case domain_to_provider(DomainName) of
