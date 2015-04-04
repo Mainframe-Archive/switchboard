@@ -123,7 +123,7 @@
 -type auth_plain() :: {plain, Username :: binary(), Password :: binary()}.
 -type auth_xoauth2() :: {xoauth2, Account :: binary(),
                          AccessToken :: binary() |
-                         {RefreshToken :: binary(), RefreshUrl :: binary()}}.
+                         {RefreshToken :: binary(), Provider :: binary()}}.
 -type auth() :: auth_plain() | auth_xoauth2().
 
 %% opt() specifies an option that the imap process can be started with -- see start_link
@@ -453,10 +453,10 @@ auth_to_props({xoauth2, Username, Token}) ->
                        AccessToken when is_binary(Token) ->
                            [{<<"type">>, <<"access">>},
                             {<<"token">>, AccessToken}];
-                       {RefreshToken, RefreshUrl} ->
+                       {RefreshToken, Provider} ->
                            [{<<"type">>, <<"refresh">>},
                             {<<"token">>, RefreshToken},
-                            {<<"url">>, RefreshUrl}]
+                            {<<"provider">>, Provider}]
                    end
      }].
 
