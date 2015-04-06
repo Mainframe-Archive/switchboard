@@ -43,14 +43,15 @@ refresh_to_access_token({xoauth2, Account, {RefreshToken, _Provider}},
                         RefreshUrl,
                         {ClientID, ClientSecret})
   when is_binary(ClientID) andalso is_binary(ClientSecret) ->
-    Body = http_uri:encode(to_query_string([{client_id, ClientID},
+    Body = to_query_string([{client_id, ClientID},
                        {client_secret, ClientSecret},
                        {refresh_token, RefreshToken},
-                       {grant_type, <<"refresh_token">>}])),
+                       {grant_type, <<"refresh_token">>}]),
     ContentType = "application/x-www-form-urlencoded",
-    case httpc:request(post, {binary_to_list(RefreshUrl), [], ContentType, Body}, [], []) of
-        {ok, {{_, 200, _}, _, Body}} ->
-            Props = jsx:decode(Body),
+    ReqParams = {binary_to_list(RefreshUrl), [], ContentType, Body},
+    case httpc:request(post, ReqParams, [], []) of
+        {ok, {{_, 200, _}, _, Response}} ->
+            Props = jsx:decode(list_to_binary(Response)),
             AccessToken = proplists:get_value(<<"access_token">>, Props),
             {ok, {xoauth2, Account, AccessToken}}
     end.
@@ -122,7 +123,7 @@ oauth_for({xoauth2, Account, {_, Provider}}) ->
     end.
 
 %% @private
--spec oauth_for(atom(), binary(), [proplists:property()]) ->
+-spec oauth_for(provider | email, binary(), [proplists:property()]) ->
     {ok, {ClientID :: string, ClientSecret :: string}} | {error, _}.
 oauth_for(provider, Provider, Providers) ->
     case proplists:get_value(Provider, Providers) of
