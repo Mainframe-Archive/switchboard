@@ -43,10 +43,10 @@ refresh_to_access_token({xoauth2, Account, {RefreshToken, _Provider}},
                         RefreshUrl,
                         {ClientID, ClientSecret})
   when is_binary(ClientID) andalso is_binary(ClientSecret) ->
-    Body = jsx:encode([{client_id, ClientID},
+    Body = http_uri:encode(to_query_string([{client_id, ClientID},
                        {client_secret, ClientSecret},
                        {refresh_token, RefreshToken},
-                       {grant_type, "refresh_token"}]),
+                       {grant_type, <<"refresh_token">>}])),
     ContentType = "application/x-www-form-urlencoded",
     case httpc:request(post, {binary_to_list(RefreshUrl), [], ContentType, Body}, [], []) of
         {ok, {{_, 200, _}, _, Body}} ->
@@ -59,6 +59,12 @@ refresh_to_access_token({xoauth2, Account, {RefreshToken, _Provider}},
 %%==============================================================================
 %% Internal Functions
 %%==============================================================================
+
+%% @private
+%% @doc Turn a tuple into a query string
+-spec to_query_string(tuple) -> {ok, binary()} | {error, _}.
+to_query_string(Props) ->
+  << <<(atom_to_binary(K, utf8))/binary, "=", V/binary, "&">> || {K, V} <- Props >>.
 
 %% @private
 %% @doc Split a domain into an iolist
@@ -142,7 +148,6 @@ oauth_for(email, Account, Providers) ->
         {error, Reason} ->
             {error, Reason}
     end.
-
 
 %% @private
 %% @doc Get all of the values for the keys provided from the proplist.
