@@ -63,7 +63,7 @@ refresh_to_access_token({xoauth2, Account, {RefreshToken, _Provider}},
 
 %% @private
 %% @doc Turn a tuple into a query string
--spec to_query_string(tuple) -> {ok, binary()} | {error, _}.
+-spec to_query_string(tuple) -> binary().
 to_query_string(Props) ->
   << <<(atom_to_binary(K, utf8))/binary, "=", V/binary, "&">> || {K, V} <- Props >>.
 
@@ -181,8 +181,16 @@ get_values_test() ->
                 {[a, b, c], [{a, 1}, {b, 2}], {error, {undefined, c}}}
                ]].
 
+to_query_string_test() ->
+  [?assertEqual(to_query_string(Props), Expected)
+   || {Props, Expected}
+      <- [
+          { [{a, <<"1234">>}], <<"a=1234&">> },
+          { [{a, <<"1234">>}, {b, <<"token">>}], <<"a=1234&b=token&">> }
+         ]].
+
 oauth_for_test() ->
-    [?assertEqual(oauth_for(Account, Providers), Expected)
+    [?assertEqual(oauth_for(provider, Account, Providers), Expected)
      || {Account, Providers, Expected}
             <- [
                 {<<"account@gmail.com">>, [{google, prov}], {ok, prov}},

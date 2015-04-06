@@ -62,8 +62,7 @@
          clean_list/1,
          get_parts_by_type/2, get_parts_by_type/3,
          auth_to_account/1,
-         auth_to_props/1,
-         start_app/1]).
+         auth_to_props/1]).
 
 
 %% Callback exports
@@ -791,25 +790,6 @@ intersperse(_, [X]) ->
   [X];
 intersperse(Sep, [X | Xs]) ->
   [X, Sep | intersperse(Sep, Xs)].
-
-
-%% @private
-%% @doc Start an app or list of apps.
--spec start_app(atom() | [atom()]) ->
-    ok.
-start_app([]) ->
-    ok;
-start_app([App | Rest] = Apps) ->
-    case application:start(App) of
-        {error, {not_started, Unstarted}} ->
-            start_app([Unstarted | Apps]);
-        ok ->
-            start_app(Rest);
-        {error, {already_started, App}} ->
-            start_app(Rest)
-    end;
-start_app(App) ->
-    start_app([App]).
 
 
 %% @private
