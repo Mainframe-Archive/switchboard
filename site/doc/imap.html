@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Module imap</title>
 <link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
 </head>
@@ -11,7 +11,7 @@
 
 <h1>Module imap</h1>
 <ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>An RFC 3501 IMAP Client.
-<p>Copyright © Copyright (c) 2014, ThusFresh, Inc.</p>
+<p>Copyright Â© Copyright (c) 2014, ThusFresh, Inc.</p>
 
 <p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
 <p><b>Authors:</b> Thomas Moulia (<a href="mailto:jtmoulia@pocketknife.io"><tt>jtmoulia@pocketknife.io</tt></a>).</p>
@@ -43,11 +43,11 @@ commands which are executed in order in a separately spawned thread</p>
 
 
 <h3 class="typedecl"><a name="type-auth_xoauth2">auth_xoauth2()</a></h3>
-<p><tt>auth_xoauth2() = {xoauth2, Account::binary(), AccessToken::binary() | {RefreshToken::binary(), RefreshUrl::binary()}}</tt></p>
+<p><tt>auth_xoauth2() = {xoauth2, Account::binary(), AccessToken::binary() | {RefreshToken::binary(), Provider::binary()}}</tt></p>
 
 
 <h3 class="typedecl"><a name="type-cmd">cmd()</a></h3>
-<p><tt>cmd() = {login, <a href="#type-auth">auth()</a>} | list | {list, binary(), binary()} | {status, <a href="#type-mailbox">mailbox()</a>} | {status, <a href="#type-mailbox">mailbox()</a>, [binary()]} | {examine, <a href="#type-mailbox">mailbox()</a>} | {select, <a href="#type-mailbox">mailbox()</a>} | {search, iodata()} | {fetch, <a href="#type-seqset">seqset()</a>} | {fetch, <a href="#type-seqset">seqset()</a>, [binary()]} | {uid, {fetch, <a href="#type-seqset">seqset()</a>}} | {uid, {fetch, <a href="#type-seqset">seqset()</a>, [binary()]}} | noop | idle</tt></p>
+<p><tt>cmd() = {login, <a href="#type-auth">auth()</a>} | list | {list, binary(), binary()} | {status, <a href="#type-mailbox">mailbox()</a>} | {status, <a href="#type-mailbox">mailbox()</a>, [binary()]} | {examine, <a href="#type-mailbox">mailbox()</a>} | {select, <a href="#type-mailbox">mailbox()</a>} | {delete, <a href="#type-mailbox">mailbox()</a>} | {search, iodata()} | {fetch, <a href="#type-seqset">seqset()</a>} | {fetch, <a href="#type-seqset">seqset()</a>, [binary()]} | {uid, {fetch, <a href="#type-seqset">seqset()</a>}} | {uid, {fetch, <a href="#type-seqset">seqset()</a>, [binary()]}} | noop | idle</tt></p>
 
 
 <h3 class="typedecl"><a name="type-cmd_opt">cmd_opt()</a></h3>
@@ -67,7 +67,7 @@ commands which are executed in order in a separately spawned thread</p>
 
 
 <h3 class="typedecl"><a name="type-opt">opt()</a></h3>
-<p><tt>opt() = {init_callback, fun(() -&gt; ok)} | {post_init_callback, fun(() -&gt; ok)} | {cmds, [{cmd, <a href="#type-cmd">cmd()</a>}]}</tt></p>
+<p><tt>opt() = {init_callback, fun((term) -&gt; ok)} | {post_init_callback, fun((term) -&gt; ok)} | {cmds, [{cmd, <a href="#type-cmd">cmd()</a>}]}</tt></p>
 
 
 <h3 class="typedecl"><a name="type-response">response()</a></h3>
@@ -79,8 +79,8 @@ commands which are executed in order in a separately spawned thread</p>
 
 
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#auth_to_props-1">auth_to_props/1</a></td><td>Returns the auth as a jsx:encodable proplist.</td></tr>
-<tr><td valign="top"><a href="#auth_to_username-1">auth_to_username/1</a></td><td>Returns the username for the given authorization.</td></tr>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#auth_to_account-1">auth_to_account/1</a></td><td>Returns the username for the given authorization.</td></tr>
+<tr><td valign="top"><a href="#auth_to_props-1">auth_to_props/1</a></td><td>Returns the auth as a jsx:encodable proplist.</td></tr>
 <tr><td valign="top"><a href="#call-2">call/2</a></td><td>Equivalent to <a href="#call-3"><tt>call(Server, Cmd, [{dispatch, dispatch_to_ref(self())}])</tt></a>.
 </td></tr>
 <tr><td valign="top"><a href="#call-3">call/3</a></td><td>Equivalent to <a href="#call-4"><tt>call(Server, Cmd, Opts, 5000)</tt></a>.
@@ -107,16 +107,16 @@ commands which are executed in order in a separately spawned thread</p>
 
 <h2><a name="functions">Function Details</a></h2>
 
+<h3 class="function"><a name="auth_to_account-1">auth_to_account/1</a></h3>
+<div class="spec">
+<p><tt>auth_to_account(X1::<a href="#type-auth">auth()</a>) -&gt; <a href="#type-account">account()</a></tt><br></p>
+</div><p>Returns the username for the given authorization. This is used
+  to simplify process registration.</p>
+
 <h3 class="function"><a name="auth_to_props-1">auth_to_props/1</a></h3>
 <div class="spec">
 <p><tt>auth_to_props(X1::<a href="#type-auth">auth()</a>) -&gt; [<a href="proplists.html#type-property">proplists:property()</a>]</tt><br></p>
 </div><p>Returns the auth as a jsx:encodable proplist.</p>
-
-<h3 class="function"><a name="auth_to_username-1">auth_to_username/1</a></h3>
-<div class="spec">
-<p><tt>auth_to_username(X1::<a href="#type-auth">auth()</a>) -&gt; binary()</tt><br></p>
-</div><p>Returns the username for the given authorization. This is used
-  to simplify process registration.</p>
 
 <h3 class="function"><a name="call-2">call/2</a></h3>
 <div class="spec">
@@ -219,12 +219,12 @@ to bring the IMAP client to the correct initial state.</p>
           <code>[{cmd, {login, ...}}, {cmd, {select, ...}}, {cmd, idle}]</code>.
       </dd>
  
-    <dt><code>{init_callback, fun(() -&gt; ok)}</code></dt>
+    <dt><code>{init_callback, fun((State) -&gt; ok)}</code></dt>
       <dd>This function will be called during the IMAP client's <code>init</code>. It is useful
           for more complex registration, e.g. using <code>gproc</code>.
       </dd>
  
-    <dt><code>{post_init_callback, fun(() -&gt; ok)}</code></dt>
+    <dt><code>{post_init_callback, fun((State) -&gt; ok)}</code></dt>
       <dd>This function will be called after <code>init</code>, and after all commands
           specified by the <code>cmds</code> option have successfully completed.
       </dd>
@@ -237,6 +237,6 @@ to bring the IMAP client to the correct initial state.</p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Jun 8 2014, 16:20:09.</i></p>
+<p><i>Generated by EDoc, Apr 7 2015, 00:17:53.</i></p>
 </body>
 </html>

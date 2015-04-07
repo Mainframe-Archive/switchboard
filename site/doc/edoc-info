@@ -1,4 +1,5 @@
 %% encoding: UTF-8
 {application,switchboard}.
 {packages,[]}.
-{modules,[imap,reloader,rfc2822,switchboard,switchboard_jmap]}.
+{modules,[imap,reloader,rfc2822,switchboard,switchboard_jmap,
+          switchboard_oauth,switchboard_workers]}.
