@@ -14,8 +14,7 @@
                   cowboy,
                   jsx,
                   ssl,
-                  eunit,
-                  recon
+                  eunit
                  ]},
   {mod, {switchboard_app, []}},
   {env, []}
