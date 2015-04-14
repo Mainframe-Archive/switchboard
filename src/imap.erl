@@ -122,7 +122,7 @@
 -type auth_plain() :: {plain, Username :: binary(), Password :: binary()}.
 -type auth_xoauth2() :: {xoauth2, Account :: binary(),
                          AccessToken :: binary() |
-                         {RefreshToken :: binary(), RefreshUrl :: binary()}}.
+                         {RefreshToken :: binary(), Provider :: binary()}}.
 -type auth() :: auth_plain() | auth_xoauth2().
 
 %% opt() specifies an option that the imap process can be started with -- see start_link
@@ -452,10 +452,10 @@ auth_to_props({xoauth2, Username, Token}) ->
                        AccessToken when is_binary(Token) ->
                            [{<<"type">>, <<"access">>},
                             {<<"token">>, AccessToken}];
-                       {RefreshToken, RefreshUrl} ->
+                       {RefreshToken, Provider} ->
                            [{<<"type">>, <<"refresh">>},
                             {<<"token">>, RefreshToken},
-                            {<<"url">>, RefreshUrl}]
+                            {<<"provider">>, Provider}]
                    end
      }].
 
@@ -690,13 +690,12 @@ cmd_to_data(InternalCmd) ->
     iodata().
 cmd_to_list({login, {plain, Username, Password}}) ->
     [<<"LOGIN">>, Username, Password];
-cmd_to_list({login, {xoauth2, Account, {RefreshToken, RefreshUrl}}}) ->
+cmd_to_list({login, {xoauth2, _, {_, _}} = RefreshAuth}) ->
     %% @todo wrap up the req
-    case httpc:request(get, {RefreshUrl, RefreshToken, []}, [], []) of
-        ok -> ok
-    end,
-    AccessToken = <<>>,
-    cmd_to_list({login, {xoauth2, Account, AccessToken}});
+    case switchboard_oauth:refresh_to_access_token(RefreshAuth) of
+        {ok, AccessAuth} ->
+            cmd_to_list({login, AccessAuth})
+    end;
 cmd_to_list({login, {xoauth2, Account, AccessToken}}) ->
     Encoded = base64:encode(<<"user=", Account/binary,
                              "auth=Bearer ", AccessToken/binary,
@@ -791,25 +790,6 @@ intersperse(_, [X]) ->
   [X];
 intersperse(Sep, [X | Xs]) ->
   [X, Sep | intersperse(Sep, Xs)].
-
-
-%% @private
-%% @doc Start an app or list of apps.
--spec start_app(atom() | [atom()]) ->
-    ok.
-start_app([]) ->
-    ok;
-start_app([App | Rest] = Apps) ->
-    case application:start(App) of
-        {error, {not_started, Unstarted}} ->
-            start_app([Unstarted | Apps]);
-        ok ->
-            start_app(Rest);
-        {error, {already_started, App}} ->
-            start_app(Rest)
-    end;
-start_app(App) ->
-    start_app([App]).
 
 
 %% @private

@@ -11,7 +11,7 @@ switchboard.tar.gz
 .erlang.mk.packages.v1
 .erlang.mk.packages.v2
 relx
-switchboard.conf
+switchboard.config
 
 # Provisioning
 provisioning/hosts

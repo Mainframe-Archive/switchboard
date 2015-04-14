@@ -226,7 +226,7 @@ auth_to_props() ->
     Password = <<"test_password">>,
     AccessToken = <<"access_token">>,
     RefreshToken = <<"refresh_token">>,
-    RefreshUrl = <<"refresh_url">>,
+    Provider = <<"provider">>,
     [?_assertEqual([{<<"type">>, <<"plain">>},
                     {<<"username">>, Username},
                     {<<"password">>, Password}],
@@ -240,9 +240,9 @@ auth_to_props() ->
                     {<<"username">>, Username},
                     {<<"token">>, [{<<"type">>, <<"refresh">>},
                                    {<<"token">>, RefreshToken},
-                                   {<<"url">>, RefreshUrl}]}],
+                                   {<<"provider">>, Provider}]}],
                    imap:auth_to_props({xoauth2, Username,
-                                       {RefreshToken, RefreshUrl}}))].
+                                       {RefreshToken, Provider}}))].
 
 %%==============================================================================
 %% Live tests [mail.dispatch.test@gmail.com]
