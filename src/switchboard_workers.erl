@@ -177,10 +177,30 @@ call_all([{Method, Args, ClientID} = Cmd | Rest], State, Acc) ->
 %%==============================================================================
 
 -ifdef(TEST).
-
--define(TEST_CMDS, [[<<"getMessages">>, [{<<"account">>, ?DISPATCH}]]]).
+-include_lib("eunit/include/eunit.hrl").
 
 suite_test_() ->
-    [].
+    [watch_all_asserts_(),
+     jmap_passthrough_asserts_()].
+
+watch_all_asserts_() ->
+    [{"Subscribe to all notifications.",
+      ?_assertEqual({[{<<"watchingAll">>, [{}], client_id}], state},
+                    call_all([{<<"watchAll">>, [{}], client_id}], state))},
+     {"Publish a new message.",
+      ?_assertEqual(msg, switchboard:publish(new, msg))},
+     {"Receive the published message.",
+      ?_assert(receive msg -> true after 100 -> false end)}].
+
+jmap_passthrough_asserts_() ->
+    NoAccountCmd = {method, [{}], client_id},
+    InactiveAccountCmd = {method, [{<<"account">>, <<"unknown">>}], client_id},
+    [{"Calling a passthrough with no account.",
+      ?_assertEqual({[switchboard_jmap:err(noAccount, NoAccountCmd)], state},
+                    call_all([NoAccountCmd], state))},
+     {"Calling a pass through with an inactive account.",
+      ?_assertEqual({[switchboard_jmap:err(inactiveAccount, InactiveAccountCmd)],
+                     state},
+                    call_all([InactiveAccountCmd], state))}].
 
 -endif.
