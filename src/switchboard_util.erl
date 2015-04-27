@@ -89,7 +89,7 @@ await_death(Pid) ->
 %% @doc Await the death of the process.
 -spec await_death(pid(), non_neg_integer()) ->
     ok | {error, timeout}.
-await_death(Pid, Timeout) ->
+await_death(Pid, Timeout) when is_pid(Pid) ->
     %% @todo race condition. Prop this up if being used outside of tests
     case is_process_alive(Pid) of
         true ->
