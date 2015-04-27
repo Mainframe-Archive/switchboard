@@ -229,3 +229,35 @@ current_uid(Account, Mailbox) ->
 
 pubsub_key(Account, Mailbox) ->
     {p, l, {idler, Account, Mailbox}}.
+
+
+%%==============================================================================
+%% EUnit tests.
+%%==============================================================================
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+%% XXX - this is all a bit weird since duplicate switchboard_operators are started.
+
+switchboard_operator_test_() ->
+    [{foreach,
+      fun() ->
+              {ok, _} = switchboard:add(?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH),
+              [{?DISPATCH, ?DISPATCH_MAILBOX}]
+      end,
+      fun([{Account, _} | _]) -> ok = switchboard:stop(Account) end,
+      [fun update_uid_internal_asserts/1,
+       fun current_uid_asserts/1]}].
+
+update_uid_internal_asserts(Accounts) ->
+    [?_assertMatch({state, _, _, LastUid, _} when is_integer(LastUid),
+                   switchboard_operator:update_uid_internal(
+                    {state, A, M, none, none})) %% This is sketchy....
+     || {A, M} <- Accounts].
+
+current_uid_asserts(Accounts) ->
+    [?_assertMatch({ok, _},
+                   switchboard_operator:current_uid(A, M)) || {A, M} <- Accounts].
+
+-endif.
