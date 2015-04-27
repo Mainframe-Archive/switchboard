@@ -126,6 +126,7 @@ oauth_for({xoauth2, Account, {_, Provider}}) ->
 -spec oauth_for(provider | email, binary(), [proplists:property()]) ->
     {ok, {ClientID :: string, ClientSecret :: string}} | {error, _}.
 oauth_for(provider, Provider, Providers) ->
+    lager:warning("Providers: ~p", [Providers]),
     case proplists:get_value(Provider, Providers) of
       undefined ->
         {error, {no_provider_oauth, Provider}}; 
@@ -172,7 +173,7 @@ get_values([Key | Keys], List, Acc) ->
 -include_lib("eunit/include/eunit.hrl").
 
 get_values_test() ->
-    [?assertEqual(get_values(Keys, List), Expected)
+    [?assertEqual(Expected, get_values(Keys, List))
      || {Keys, List, Expected}
             <- [{[a], [{a, 1}, {b, 2}], {ok, [1]}},
                 {[b], [{a, 1}, {b, 2}], {ok, [2]}},
@@ -182,7 +183,7 @@ get_values_test() ->
                ]].
 
 to_query_string_test() ->
-  [?assertEqual(to_query_string(Props), Expected)
+  [?assertEqual(Expected, to_query_string(Props))
    || {Props, Expected}
       <- [
           { [{a, <<"1234">>}], <<"a=1234&">> },
@@ -190,7 +191,7 @@ to_query_string_test() ->
          ]].
 
 oauth_for_test() ->
-    [?assertEqual(oauth_for(provider, Account, Providers), Expected)
+    [?assertEqual(Expected, oauth_for(email, Account, Providers))
      || {Account, Providers, Expected}
             <- [
                 {<<"account@gmail.com">>, [{google, prov}], {ok, prov}},
