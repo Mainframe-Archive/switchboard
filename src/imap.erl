@@ -89,23 +89,6 @@
 -define(CALL_TIMEOUT, 5000).
 
 
--ifdef(DEBUG).
-    -define(LOG_DEBUG(Format, Data),
-            ?LOG_INFO("*** DEBUG: " ++ Format ++ " ***", Data)).
-    -define(LOG_ERROR(Fun, Format, Data),
-            error_logger:error_msg("~p:~p(): " ++ Format ++ "~n",
-                                   [?MODULE, Fun] ++ Data)).
-    -define(LOG_WARNING(Fun, Format, Data),
-            error_logger:warning_msg("~p:~p(): " ++ Format ++ "~n",
-                                     [?MODULE, Fun] ++ Data)).
-    -define(LOG_INFO(Format, Data), error_logger:info_msg(Format ++ "~n", Data)).
--else.
-    -define(LOG_DEBUG(Format, Data), true).
-    -define(LOG_ERROR(Fun, Format, Data), true).
-    -define(LOG_WARNING(Fun, Format, Data), true).
-    -define(LOG_INFO(Format, Data), true).
--endif.
-
 %% Types
 -type socket() :: ssl:sslsocket() | gen_tcp:socket().
 %% account() should be your good old "address@email.com"
@@ -506,13 +489,13 @@ handle_cast({cmd, {'+', ContCmd}, _}, #state{socket=Socket} = State) ->
     {noreply, State};
 handle_cast({cmd, Cmd, _} = IntCmd,
             #state{cmds=Cmds, socket=Socket, tag=Tag} = State) ->
-    %% ?LOG_DEBUG("IMAP Being issued cmd: ~p", [Cmd]),
+    % lager:debug("IMAP Being issued cmd: ~p", [Cmd]),
     CTag = <<$C, (integer_to_binary(Tag))/binary>>,
     ok = ssl:send(Socket, [CTag, " " | cmd_to_data(Cmd)]),
     {noreply, State#state{cmds=gb_trees:insert(CTag, IntCmd, Cmds), tag=Tag+1}};
 %% Called once all inital commands have been completed
 handle_cast({lifecycle, {cmds, complete}}, #state{opts=Opts} = State) ->
-    % ?LOG_DEBUG("cmds complete", []),
+    % lager:debug("cmds complete", []),
     case proplists:get_value(post_init_callback, Opts) of
         undefined ->
             {noreply, State};
@@ -528,11 +511,11 @@ handle_cast(_Request, State) ->
 %% @private
 handle_info({ssl, Socket, Data},
             #state{socket=Socket, tokenize_state={Buffer, AccState}} = State) ->
-    %% lager:info("Received: ~p", [Data]),
+    % lager:info("Received: ~p", [Data]),
     Buffer2 = <<Buffer/binary, Data/binary>>,
     {noreply, churn_buffer(State#state{tokenize_state={Buffer2, AccState}})};
 handle_info({ssl_closed, Socket}, #state{socket=Socket} = State) ->
-    % ?LOG_WARNING(handle_info, "Socket Closed: ~p", [self()]),
+    lager:warning("Socket Closed: ~p", [self()]),
     {stop, normal, State}.
 
 
@@ -544,12 +527,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% @private
 %% @todo -- on termination send {error, _} msgs to all open cmds
 terminate(Reason, #state{socket=Socket, connspec={SocketType, _, _, _}}) ->
-    ?LOG_WARNING(terminate, "TERMINATING ~p", [Reason]),
+    lager:warning("TERMINATING ~p", [Reason]),
     SocketType:close(Socket);
 terminate(normal, _State) ->
     ok;
 terminate(Reason, _State) ->
-    ?LOG_WARNING(terminate, "IMAP Terminating due to ~p", [Reason]).
+    lager:warning("IMAP Terminating due to ~p", [Reason]).
 
 
 %%==============================================================================
@@ -621,7 +604,7 @@ churn_buffer(#state{tokenize_state=TokenizeState, parse_state=ParseState} = Stat
 churn_buffer(State, none) ->
     State;
 churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
-    % ?LOG_DEBUG("UNTAGGED: ~p", [Response]),
+    % lager:debug("Untagged: ~p", [Response]),
     ok = lists:foreach(
            fun(Cmd) ->
                    dispatch(Cmd, {'*', Response})
@@ -630,14 +613,14 @@ churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
                         gb_trees:values(Cmds))),
     churn_buffer(State);
 churn_buffer(#state{cmds=Cmds} = State, [<<"+">> | Response]) ->
-    % ?LOG_DEBUG("+: ~p", [Response]),
+    % lager:debug("+: ~p", [Response]),
     ok = lists:foreach(
            fun(Cmd) ->
                    dispatch(Cmd, {'+', Response})
            end, gb_trees:values(Cmds)),
     churn_buffer(State);
 churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
-    % ?LOG_DEBUG("Tag: ~p, Rest: ~p", [Tag, Response]),
+    % lager:debug("Tag: ~p, Rest: ~p", [Tag, Response]),
     churn_buffer(case gb_trees:lookup(Tag, Cmds) of
                      {value, Cmd} ->
                          ok = dispatch(Cmd, case Response of
@@ -647,7 +630,7 @@ churn_buffer(#state{cmds=Cmds} = State, [Tag | Response]) ->
                                        end),
                          State#state{cmds=gb_trees:delete(Tag, Cmds)};
                      none ->
-                         ?LOG_WARNING(churn_buffer, "Unknown Cmd Tag: ~p", [Tag]),
+                         lager:warning("Unknown Cmd Tag: ~p", [Tag]),
                          State
                  end).
 
