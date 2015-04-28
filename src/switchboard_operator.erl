@@ -60,12 +60,6 @@
          terminate/2]).
 
 
--ifdef(TEST).
--export([update_uid_internal/1,
-         current_uid/2]).
--endif.
-
-
 %% Records
 -record(state, {account :: imap:account(),
                 mailbox :: imap:mailbox(),
@@ -152,18 +146,14 @@ handle_cast(_Request, State) ->
 handle_info(timeout, State) ->
     ok = update_uid(self()),
     {noreply, State};
-handle_info({idle, {'*', [_, <<"EXISTS">>]}}, State) ->
-    {noreply, update_uid_internal(State)};
-handle_info({idle, {'*', [_, <<"EXPUNGE">>]}}, State) ->
+handle_info({idle, {'*', [_, Notification]}}, State)
+  when Notification =:= <<"EXISTS">> orelse Notification =:= <<"EXPUNGE">> ->
     {noreply, update_uid_internal(State)};
 handle_info({idle, {'+', [<<"idling">>]}}, State) ->
-    {noreply, State};
+    % Set the initial UID values.
+    {noreply, update_uid_internal(State)};
 handle_info({idle, Msg}, State) ->
-    lager:info("Unrecognized msg: ~p", [Msg]),
-    {noreply, State};
-
-%% Catchall
-handle_info(_Info, State) ->
+    lager:warning("Unrecognized msg: ~p", [Msg]),
     {noreply, State}.
 
 
@@ -182,26 +172,36 @@ terminate(_Reason, _State) ->
 %%==============================================================================
 
 %% @private
-%% @doc Updates the State's uid, publishing messages as necessary.
+
+%% @doc Updates the State's uid, publishing messages as necessary. `last_uid' is
+%% used as a reference point: when this function is called with a state where
+%% `#state{last_uid=none}' it will set the last_uid, and consider no messages to
+%% be new.
+%%
+%% @todo uid validity checks
 -spec update_uid_internal(#state{}) ->
     #state{}.
 update_uid_internal(#state{account=Account,
-                           mailbox=Mailbox,
-                           last_uid=LastUid} = State) ->
+                           mailbox=Mailbox} = State) ->
     {ok, Uid} = current_uid(Account, Mailbox),
-    %% lager:debug("UID: ~p, LastUid: ~p", [Uid, LastUid]),
-    if LastUid =/= none ->
-            {ok, {_, Emails}} = imap:call(switchboard:where(Account, active),
-                                     {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
-            lists:foreach(
-             fun({fetch, Data}) ->
-                     switchboard:publish(new, {new, {Account, Mailbox}, Data})
-             end, lists:map(fun imap:clean/1, Emails));
-       %% lager:info("New Emails: ~p", [Emails]);
-       true -> ok
-    end,
-    State#state{last_uid=Uid}.
+    update_uid_internal(State, Uid).
 
+update_uid_internal(#state{last_uid=none} = State, Uid) ->
+    State#state{last_uid=Uid};
+update_uid_internal(#state{last_uid=LastUid} = State, Uid)
+  when Uid =< LastUid ->
+    State;
+update_uid_internal(#state{account=Account,
+                           mailbox=Mailbox,
+                           last_uid=LastUid} = State,
+                    Uid) when Uid > LastUid ->
+    {ok, {_, Emails}} = imap:call(switchboard:where(Account, active),
+                                  {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
+    lists:foreach(
+      fun({fetch, Data}) ->
+              switchboard:publish(new, {new, {Account, Mailbox}, Data})
+      end, lists:map(fun imap:clean/1, Emails)),
+    State#state{last_uid=Uid}.
 
 %% @private
 %% @doc Helper function to get the fetch command's result's UID.
@@ -251,13 +251,11 @@ switchboard_operator_test_() ->
        fun current_uid_asserts/1]}].
 
 update_uid_internal_asserts(Accounts) ->
-    [?_assertMatch({state, _, _, LastUid, _} when is_integer(LastUid),
-                   switchboard_operator:update_uid_internal(
-                    {state, A, M, none, none})) %% This is sketchy....
+    [?_assertMatch(#state{last_uid=LastUid} when is_integer(LastUid),
+                   update_uid_internal(#state{account=A, mailbox=M}))
      || {A, M} <- Accounts].
 
 current_uid_asserts(Accounts) ->
-    [?_assertMatch({ok, _},
-                   switchboard_operator:current_uid(A, M)) || {A, M} <- Accounts].
+    [?_assertMatch({ok, _}, current_uid(A, M)) || {A, M} <- Accounts].
 
 -endif.
