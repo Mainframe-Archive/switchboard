@@ -389,7 +389,7 @@ where_assertions(Account) ->
 
 %% @private
 accounts_assertions(Account) ->
-    [?_assertEqual(switchboard:accounts(), [Account])].
+    [?_assert(lists:member(Account, switchboard:accounts()))].
 
 
 %% @private
