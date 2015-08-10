@@ -86,6 +86,7 @@ start_dispatch() ->
 clean_suite_test_() ->
     [clean_body_assertions(),
      clean_address_assertions(),
+     build_address_assertions(),
      clean_assertions(),
      get_parts_by_type_assertions()].
 
@@ -107,6 +108,12 @@ clean_address_assertions() ->
     [?_assertEqual([{address, [{name, <<"John Doe">>}, {email, <<"john@gmail.com">>}]},
                     {address, [{name, <<"Jane Doe">>}, {email, <<"jane@gmail.com">>}]}],
                    imap:clean_addresses(?ADDRESSES))].
+
+build_address_assertions() ->
+    [?_assertEqual([{email, <<"john@gmail.com">>}],
+                   imap:build_address(<<"john">>, {string, <<"gmail.com">>})),
+     ?_assertEqual([{email, <<"john@">>}],
+                   imap:build_address(<<"john">>, nil))].
 
 clean_assertions() ->
     [?_assertMatch({fetch, [{uid, 37},

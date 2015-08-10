@@ -77,6 +77,7 @@
 -ifdef(TEST).
 %% When testing, export additional functions
 -export([clean_addresses/1,
+         build_address/2,
          clean_body/1,
          cmd_to_list/1,
          seqset_to_list/1,
@@ -876,14 +877,23 @@ clean_addresses(Addresses) ->
     [address()].
 clean_addresses([], Acc) ->
     lists:reverse(Acc);
-clean_addresses([[RawName, _, {string, MailBox}, {string, Host}] | Rest], Acc) ->
-    Address = [{email, <<MailBox/binary, $@, Host/binary>>}],
+clean_addresses([[RawName, _, {string, MailBox}, Host] | Rest], Acc) ->
+    Address = build_address(MailBox, Host),
     clean_addresses(Rest,
                     [{address, case RawName of
                                    nil -> [{name, <<"">>} | Address];
                                    {string, Name} -> [{name, Name} | Address]
                                end} |
                      Acc]).
+
+%% @private
+%% Concatenates a Mailbox and a Host (if one provided)
+build_address(MailBox, Host) ->
+  Domain = case Host of
+             {string, Str} -> Str;
+             _ -> <<"">>
+           end,
+  [{email, <<MailBox/binary, $@, Domain/binary>>}].
 
 %% @private
 %% If the address is wrapped by `<...>', strip the angle brackets
