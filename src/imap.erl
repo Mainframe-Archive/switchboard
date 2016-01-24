@@ -81,8 +81,8 @@
          clean_body/1,
          cmd_to_list/1,
          seqset_to_list/1,
-         pop_token/1,
-         decode_line/1,
+         pop_token/1, pop_token/2,
+         decode_line/1, decode_line/2,
          tokenize/1,
          parse/1]).
 -endif.
@@ -604,6 +604,8 @@ churn_buffer(#state{tokenize_state=TokenizeState, parse_state=ParseState} = Stat
     #state{}.
 churn_buffer(State, none) ->
     State;
+churn_buffer(State, []) ->
+    State;
 churn_buffer(#state{cmds=Cmds} = State, [<<"*">> | Response]) ->
     % lager:debug("Untagged: ~p", [Response]),
     ok = lists:foreach(
@@ -990,7 +992,7 @@ pop_token(<<$], Rest/binary>>, none) ->
 
 %% Numbers
 pop_token(<<C, _/binary>> = Data, {number, NumberAcc}) when
-  C =:= 32; C =:= 40; C =:= 41; C =:= 91; C =:= 93 ->
+  C =:= 32; C =:= 40; C =:= 41; C =:= $(; C =:= $); C =:= 91; C =:= 93 ->
     {binary_to_integer(NumberAcc), Data, none};
 pop_token(<<$\r, $\n, _/binary>> = Data, {number, NumberAcc}) ->
     {binary_to_integer(NumberAcc), Data, none};
@@ -1005,7 +1007,7 @@ pop_token(<<C, Rest/binary>>, {number, NumberAcc}) when C >= 35, C < 123 ->
 
 %% Atom
 pop_token(<<C, _/binary>> = Data, {atom, AtomAcc}) when
-  C =:= 32; C =:= 40; C =:= 41; C =:= 91; C =:= 93 ->
+  C =:= 32; C =:= 40; C =:= 41; C =:= $(; C =:= $); C =:= 91; C =:= 93 ->
     {AtomAcc, Data, none};
 pop_token(<<$\r, $\n, _/binary>> = Data, {atom, AtomAcc}) ->
     {AtomAcc, Data, none};
@@ -1048,15 +1050,8 @@ pop_token(Binary, _) ->
 
 
 %% @private
-%% @doc Parse the flat list of tokens into a data structurej
+%% @doc Parse the flat list of tokens into a syntax tree and remainder.
 %% @end
-
-%% todo
-%% 21:46:48.402 [info] Received: <<"* 12 FETCH (UID 12)\r\n* 13 FETCH (U">>
-%% 21:46:48.403 [info] Result: [<<"*">>,12,<<"FETCH">>,[<<"UID">>,12]]
-%% 21:46:48.403 [info] Result: none
-%% 21:46:48.403 [info] Received: <<"ID 13)\r\n* 14 FETCH (UID 14)\r\n">>
-%% 21:46:48.403 [info] Result: [<<"*">>,13,<<"FETCH">>,none,<<"UID">>,13]
 -spec parse([token()]) ->
     {[imap_term()] | none, [token()], [imap_term()]}.
 parse(Tokens) ->
@@ -1072,10 +1067,10 @@ parse([crlf | Rest], ParseAcc) ->
 
 parse(['(' | Rest] = Tokens, ParseAcc) ->
     case parse(Rest) of
-        {List, Rest2, []} ->
-            parse(Rest2, [List | ParseAcc]);
         {none, _, _} ->
-            {none, Tokens, ParseAcc}
+            {none, Tokens, ParseAcc};
+        {List, Rest2, []} ->
+            parse(Rest2, [List | ParseAcc])
     end;
 parse([')' | Rest], ParseAcc) ->
     {lists:reverse(ParseAcc), Rest, []};
