@@ -217,13 +217,31 @@ parse_lists() ->
 
 %% decode_line testing.
 decode_line_test_() ->
-    [decode_line_default()].
+    [decode_line_default(),
+     decode_line_paren_partial()].
 
 
 decode_line_default() ->
     [?_assertEqual({[1, 2, 3], {<<>>, none}, {[], []}},
                    imap:decode_line(<<"1 2 3\r\n">>))].
 
+
+%% 21:46:48.402 [info] Received: <<"* 12 FETCH (UID 12)\r\n* 13 FETCH (U">>
+%% 21:46:48.403 [info] Result: [<<"*">>,12,<<"FETCH">>,[<<"UID">>,12]]
+%% 21:46:48.403 [info] Result: none
+%% 21:46:48.403 [info] Received: <<"ID 13)\r\n* 14 FETCH (UID 14)\r\n">>
+%% 21:46:48.403 [info] Result: [<<"*">>,13,<<"FETCH">>,none,<<"UID">>,13]
+decode_line_paren_partial() ->
+    {Result, {<<>>, TokenizeCurrent}, ParseState} =
+        imap:decode_line(<<"* 12 FETCH (UID 12)\r\n* 13 FETCH (U">>),
+    {Result2, TokenizeState2, ParseState2} =
+        imap:decode_line({<<"ID 13)\r\n* 14 FETCH (UID 14)\r\n">>, TokenizeCurrent},
+                    ParseState),
+    [?_assertEqual([<<"*">>,12,<<"FETCH">>,[<<"UID">>,12]], Result),
+     ?_assertEqual([<<"*">>,13,<<"FETCH">>,[<<"UID">>,13]], Result2),
+     ?_assertEqual({<<>>, none}, TokenizeState2),
+     ?_assertEqual({[<<"*">>,14,<<"FETCH">>,'(',<<"UID">>,14,')',crlf],[]},
+                   ParseState2)].
 
 auth_to_test_() ->
     [auth_to_props()].
