@@ -3,7 +3,7 @@
 ## =========
 
 PROJECT		= switchboard
-PROFILE		= dev
+PROFILE		?= dev
 
 SITE_DIR	= site
 SITE_DOCS_DIR	= $(SITE_DIR)/doc
