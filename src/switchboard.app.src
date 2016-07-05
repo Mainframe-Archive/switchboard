@@ -14,7 +14,8 @@
                   cowboy,
                   jsx,
                   ssl,
-                  eunit
+                  eunit,
+                  poolboy
                  ]},
   {mod, {switchboard_app, []}},
   {env, []}

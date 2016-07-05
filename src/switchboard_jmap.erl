@@ -798,7 +798,7 @@ jmap_connect_assertions() ->
     Account = imap:auth_to_account(Auth),
     case lists:member(Account, switchboard:accounts()) of
         true ->
-            OldIMAP = switchboard:where(Account, active),
+            OldIMAP = switchboard:where(Account, pool),
             switchboard:stop(Account),
             switchboard_util:await_death(OldIMAP);
         false ->
@@ -809,7 +809,7 @@ jmap_connect_assertions() ->
                      {<<"port">>, Port},
                      {<<"auth">>, imap:auth_to_props(Auth)}],
                     <<"1">>}, #state{}),
-    {IMAP, _} = gproc:await(switchboard:key_for(Account, active), 5000),
+    {IMAP, _} = gproc:await(switchboard:key_for(Account, pool), 5000),
     [?_assertMatch({{<<"connected">>, _, <<"1">>},
                     #state{connspec=ConnSpec, account=Account}}, Connect),
      ?_assertEqual(ok, switchboard:stop(Account)),
@@ -833,7 +833,7 @@ imap_setup() ->
 %% @private
 %% @doc Exit the test imap connection.
 imap_teardown(#state{account=Account}) ->
-    IMAP = switchboard:where(Account, active),
+    IMAP = switchboard:where(Account, pool),
     switchboard:stop(Account),
     switchboard_util:await_death(IMAP).
 

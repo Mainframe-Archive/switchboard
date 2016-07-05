@@ -6,7 +6,7 @@ accounts_test_() ->
      fun accounts_setup/0,
      fun accounts_teardown/1,
      [fun accounts_reg_asserts/1,
-      fun active_asserts/1,
+      fun pool_asserts/1,
       fun operator_asserts/1]}.
 
 -spec accounts_setup() ->
@@ -34,15 +34,19 @@ accounts_reg_asserts({{_ConnSpec, Auth}, Mailboxes, _}) ->
       || Type <- [idler, operator], Mailbox <- Mailboxes],
      [?_assertMatch({Pid, _} when is_pid(Pid),
                     gproc:await(switchboard:key_for(Account, Type)))
-      || Type <- [active, account]]].
+      || Type <- [pool, account]]].
 
--spec active_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
+-spec pool_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->
     [any()].
-active_asserts({{_, Auth}, [Mailbox | _], _}) ->
+pool_asserts({{_, Auth}, [Mailbox | _], _}) ->
     Account = imap:auth_to_account(Auth),
-    {Active, _} = gproc:await(switchboard:key_for(Account, active)),
-    [?_assertMatch({ok, _}, imap:call(Active, {select, Mailbox})),
-     ?_assertMatch({ok, _}, imap:call(Active, {fetch, 1, [<<"UID">>]}))].
+    {Select, Fetch} = switchboard:with_imap(Account,
+                                            fun(IMAP) ->
+                                                {imap:call(IMAP, {select, Mailbox}),
+                                                 imap:call(IMAP, {fetch, 1, [<<"UID">>]})}
+                                            end),
+    [?_assertMatch({ok, _}, Select),
+     ?_assertMatch({ok, _}, Fetch)].
 
 %% @hidden Assert that the operator is behaving as expected.
 -spec operator_asserts({{imap:connspec(), imap:auth()}, [imap:mailbox()], pid()}) ->

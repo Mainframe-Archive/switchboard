@@ -195,8 +195,10 @@ update_uid_internal(#state{account=Account,
                            mailbox=Mailbox,
                            last_uid=LastUid} = State,
                     Uid) when Uid > LastUid ->
-    {ok, {_, Emails}} = imap:call(switchboard:where(Account, active),
-                                  {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}}),
+    {ok, {_, Emails}} = switchboard:with_imap(Account,
+                            fun(IMAP) ->
+                                imap:call(IMAP, {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}})
+                            end),
     lists:foreach(
       fun({fetch, Data}) ->
               switchboard:publish(new, {new, {Account, Mailbox}, Data})
@@ -218,10 +220,11 @@ get_fetch_uid([_ | Rest]) ->
 -spec current_uid(binary(), imap:mailbox()) ->
     {ok, integer()}.
 current_uid(Account, Mailbox) ->
-    {Active, _} = gproc:await(switchboard:key_for(Account, active), 5000),
-    {ok, _} = imap:call(Active, {select, Mailbox}),
-    {ok, {_, Resps}} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
-    BinUid = get_fetch_uid(Resps),
+    BinUid = switchboard:with_imap(Account, fun(Active) ->
+        {ok, _} = imap:call(Active, {select, Mailbox}),
+        {ok, {_, Resps}} = imap:call(Active, {uid, {fetch, '*', <<"UID">>}}),
+        get_fetch_uid(Resps)
+    end),
     {ok, if is_integer(BinUid) -> BinUid;
             is_binary(BinUid)  -> binary_to_integer(BinUid)
          end}.

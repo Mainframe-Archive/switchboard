@@ -57,8 +57,8 @@
 
 -include("switchboard.hrl").
 
-% -type process() :: account | active.
--type keytype() :: account | active | idlers
+% -type process() :: account | pool.
+-type keytype() :: account | idlers | pool
                  | {idler | operator | idler_sup, imap:mailbox()}.
 -type pubsub_channel() :: new.
 
@@ -83,7 +83,7 @@ add(ConnSpec, Auth) ->
 %% Each mailbox provided will be monitored for new emails, and notifications
 %% of new email arrivals will be published to the <tt>new</tt> channel.
 %%
-%% Note: This will start an `active' IMAP connection which can be used for queries,
+%% Note: This will start a `pool' of IMAP connections which can be used for queries,
 %% as well as one `idler' IMAP connection per mailbox given. Some email providers
 %% <a href="https://support.google.com/mail/answer/97150?hl=en">limit</a> the number
 %% of open imap connections.
@@ -131,8 +131,8 @@ stop_mailbox_monitor(Account, Mailbox) ->
 %% wraps the term with gproc properties and a switchboard namespace.
 %%
 %% <dl>
-%%   <dt>`active'</dt>
-%%     <dd>The active IMAP client. While used internally by Switchboard,
+%%   <dt>`pool'</dt>
+%%     <dd>The pool of IMAP clients. While used internally by Switchboard,
 %%         this can also be used externally to make requests.
 %%     </dd>
 %%   <dt>`{idler, Mailbox}'</dt>
@@ -167,8 +167,8 @@ register_callback(Account, Type) ->
 
 %% @doc Returns the process of type for the provided account.
 %%
-%% For example, `where(<<"dispatchonme@gmail.com">>, active)' would return
-%% the `active' IMAP client for `dispatchonme@gmail.com'.
+%% For example, `where(<<"dispatchonme@gmail.com">>, pool)' would return
+%% the `pool' supervisor of IMAP clients for `dispatchonme@gmail.com'.
 %%
 %% @see key_for/2
 %% @end
@@ -198,19 +198,16 @@ await(Account, Type, Timeout) ->
     Pid.
 
 
-%% @todo implement a pool around active connections, checkout the active process
-%% from this.
 checkout(Account) ->
-    {Active, _} = gproc:await(key_for(Account, active), 5000),
+    Active = poolboy:checkout({via, gproc, key_for(Account, pool)}),
     {ok, Active}.
 
 
-%% @todo return a checked out IMAP connection.
-return(_Account, _IMAP) ->
-    ok.
+return(Account, IMAP) ->
+    ok = poolboy:checkin({via, gproc, key_for(Account, pool)}, IMAP).
 
 
-%% @todo rethrow errors instead of eating them?
+%% @doc Execute a function with an IMAP connection to the given account
 with_imap(Account, Fun) ->
     {ok, IMAP} = checkout(Account),
     Result = case catch Fun(IMAP) of
@@ -351,10 +348,10 @@ suite_test_() ->
      {foreach,
       fun() ->
               {ok, _} = switchboard:add(?DISPATCH_CONN_SPEC, ?DISPATCH_AUTH),
-              {_, _} = gproc:await(switchboard:key_for(?DISPATCH, active), 5000),
+              {_, _} = gproc:await(switchboard:key_for(?DISPATCH, pool), 5000),
               ?DISPATCH end,
       fun(Account) ->
-              IMAP = switchboard:where(Account, active),
+              IMAP = switchboard:where(Account, pool),
               ok = switchboard:stop(Account),
               switchboard_util:await_death(IMAP)
       end,
@@ -384,7 +381,7 @@ pubsub_assertions() ->
 %% @private
 where_assertions(Account) ->
     [?_assertMatch(P when is_pid(P), switchboard:await(Account, account)),
-     ?_assertMatch(P when is_pid(P), switchboard:await(Account, active))].
+     ?_assertMatch(P when is_pid(P), switchboard:await(Account, pool))].
 
 
 %% @private
@@ -406,7 +403,10 @@ monitor_assertions(Account) ->
 %% @private
 %% @doc Test that the imap server can be queried.
 query_assertions(Account) ->
-    Active = switchboard:await(Account, active),
-    [?_assertMatch({ok, _}, imap:call(Active, {select, <<"INBOX">>}))].
+    Res = switchboard:with_imap(Account,
+                                fun(IMAP) ->
+                                    imap:call(IMAP, {select, <<"INBOX">>})
+                                end),
+    [?_assertMatch({ok, _}, Res)].
 
 -endif.
