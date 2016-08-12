@@ -21,7 +21,7 @@ ifeq ($(PROFILE), dev)
 	RELX_OPTS = --dev-mode
 endif
 
-DEPS	= lager gproc cowboy jsx
+DEPS	= lager gproc cowboy jsx poolboy
 
 include erlang.mk
 
