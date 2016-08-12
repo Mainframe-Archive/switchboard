@@ -206,7 +206,7 @@ start(ConnSpec, Opts) ->
 %% @equiv start_link(ConnSpec, [])
 -spec start_link(connspec()) ->
     {ok, pid()} | _.
-%% Allow starting with Poolboy
+%% Allow starting with Poolboy.
 start_link([ConnSpec, Opts]) when is_tuple(ConnSpec), is_list(Opts) ->
     start_link(ConnSpec, Opts);
 start_link(ConnSpec) ->

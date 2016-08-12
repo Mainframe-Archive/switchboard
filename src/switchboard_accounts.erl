@@ -67,11 +67,12 @@ init({ConnSpec, Auth, Mailboxes}) ->
     true = gproc:reg(switchboard:key_for(Account, account)),
     RestartStrategy = one_for_all,
     MaxR = MaxT = 5,
+    {Size, Overflow} = application:get_env(switchboard, imap_pool_size, {1, 2}),
     ActiveChildSpec = poolboy:child_spec(
                         Account,
                         [{name,
                           {via, gproc, switchboard:key_for(Account, pool)}},
-                         {worker_module, imap}, {size, 4}, {max_overflow, 5}],
+                         {worker_module, imap}, {size, Size}, {max_overflow, Overflow}],
                         [ConnSpec, [{cmds, [{cmd, {call, {login, Auth}}}]}]]),
     IdlersChildSpec = {idlers,
                        {switchboard_idlers, start_link, [ConnSpec, Auth, Mailboxes]},

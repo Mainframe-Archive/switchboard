@@ -204,10 +204,11 @@ checkout(Account) ->
 
 
 return(Account, IMAP) ->
-    ok = poolboy:checkin({via, gproc, key_for(Account, pool)}, IMAP).
+    poolboy:checkin({via, gproc, key_for(Account, pool)}, IMAP),
+    ok.
 
 
-%% @doc Execute a function with an IMAP connection to the given account
+%% @doc Execute a function with an IMAP connection to the given account.
 with_imap(Account, Fun) ->
     {ok, IMAP} = checkout(Account),
     Result = case catch Fun(IMAP) of
