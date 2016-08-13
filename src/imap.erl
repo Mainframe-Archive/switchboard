@@ -353,6 +353,8 @@ clean({'*', [Exists, <<"EXISTS">>]}) ->
     {exists, Exists};
 clean({'*', [Recent, <<"RECENT">>]}) ->
     {recent, Recent};
+clean({'*', [<<"OK">>, '[', <<"UNSEEN">>, Unseen, ']' | _]}) ->
+    {unseen, Unseen};    
 clean({'*', [<<"OK">>, '[', <<"PERMANENTFLAGS">>, PermanentFlags, ']' | _]}) ->
     {permanent_flags, PermanentFlags};
 clean({'*', [<<"OK">>, '[', <<"UIDVALIDITY">>, UIDValidity, ']' | _]}) ->
