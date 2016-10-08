@@ -197,6 +197,7 @@ update_uid_internal(#state{account=Account,
                     Uid) when Uid > LastUid ->
     {ok, {_, Emails}} = switchboard:with_imap(Account,
                             fun(IMAP) ->
+                                {ok, _} = imap:call(IMAP, {select, Mailbox}),
                                 imap:call(IMAP, {uid, {fetch, {LastUid + 1, Uid}, <<"ALL">>}})
                             end),
     lists:foreach(

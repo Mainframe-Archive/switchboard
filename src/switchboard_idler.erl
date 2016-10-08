@@ -72,7 +72,7 @@ init({ConnSpec, Auth, Mailbox}) ->
                 {imap, start_link,
                  [ConnSpec,
                   [{cmds, [{cmd, {call, {login, Auth}}},
-                           {cmd, {call, {select, <<"INBOX">>}}},
+                           {cmd, {call, {select, Mailbox}}},
                            {cmd, {cast, idle}, [{dispatch, DispatchFun}]}]},
                    {post_init_callback,
                     switchboard:register_callback(Account, {idler, Mailbox})}]]},
