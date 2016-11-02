@@ -875,7 +875,7 @@ clean_addresses(nil) ->
 clean_addresses({string, <<"">>}) ->
     [];
 clean_addresses({string, Address}) ->
-    [address, {email, strip_address(Address)}];
+    [{address, [{email, strip_address(Address)}]}];
 clean_addresses(Addresses) ->
     clean_addresses(Addresses, []).
 
