@@ -818,6 +818,8 @@ clean_props([<<"BODY">>, '[', ']', {string, Body} | Rest], Acc) ->
     clean_props(Rest, [{body, Body} | Acc]);
 clean_props([<<"BODY">>, '[', <<"TEXT">>, ']', {string, Body} | Rest], Acc) ->
     clean_props(Rest, [{textbody, Body} | Acc]);
+clean_props([<<"BODY">>, '[', Part, ']', {string, Body} | Rest], Acc) ->
+    clean_props(Rest, [{<<"body.", Part/binary>>, Body} | Acc]);
 clean_props([<<"BODY">>, Body | Rest], Acc) ->
     clean_props(Rest, [{body, clean_body(Body)} | Acc]).
 
